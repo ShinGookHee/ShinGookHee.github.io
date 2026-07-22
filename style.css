@@ -165,7 +165,8 @@ textarea:focus-visible {
   justify-content: center;
 }
 
-.profile-img {
+.profile-img,
+.img {
   width: 8.2rem;
   height: 8.2rem;
   border: 1px solid var(--line);
@@ -367,7 +368,8 @@ textarea {
     justify-content: flex-start;
   }
 
-  .profile-img {
+  .profile-img,
+  .img {
     width: 6rem;
     height: 6rem;
   }
