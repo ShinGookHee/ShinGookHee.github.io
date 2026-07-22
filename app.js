@@ -38,7 +38,7 @@ function renderAbout(profile) {
     `
       <div class="row about-row">
         <div class="details profile-visual no-print">
-          <div class="profile-img" aria-hidden="true">GS</div>
+          <img class="profile-img" src="images/profile.jpg" alt="Gookhee Shin profile photo" />
         </div>
         <div class="content">
           <p>${escapeHtml(about)}</p>
