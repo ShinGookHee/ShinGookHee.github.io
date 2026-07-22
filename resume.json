@@ -1,0 +1,206 @@
+{
+  "profile": {
+    "name": "Gookhee Shin",
+    "location": "Daejeon, Republic of Korea",
+    "email": "annshin06@kaist.ac.kr",
+    "headline": "Industrial and Systems Engineering student working across optimization, bioinformatics, manufacturing systems, and social-impact technology.",
+    "about": "I am an undergraduate student in Industrial and Systems Engineering at KAIST, with a double major in Business and Technology Management. My work connects optimization, data analysis, biomedical systems, manufacturing innovation, and education technology. I am especially interested in turning uncertain real-world problems into measurable decision-making frameworks that can create practical value for healthcare, advanced manufacturing, and learning opportunities."
+  },
+  "education": [
+    {
+      "institution": "KAIST",
+      "location": "Daejeon, Republic of Korea",
+      "degree": "Candidate for BEng in Industrial and Systems Engineering",
+      "minor": "Candidate for BEng in Business and Technology Management, Double Major",
+      "date": "Expected Feb. 2027"
+    },
+    {
+      "institution": "Hansung Science High School",
+      "location": "Seoul, Republic of Korea",
+      "date": "Mar. 2022 - Feb. 2024"
+    },
+    {
+      "institution": "Sehwa Girls' Middle School",
+      "location": "Seoul, Republic of Korea",
+      "date": "Mar. 2019 - Feb. 2022"
+    }
+  ],
+  "sections": [
+    {
+      "title": "Entrepreneurship & Startup Experience",
+      "items": [
+        {
+          "name": "Listeney, AI-Powered Language Habit Correction Platform",
+          "location": "Daejeon, Republic of Korea",
+          "role": "Co-Founder, CEO",
+          "date": "Nov. 2024 - Dec. 2025",
+          "bullets": [
+            "Founded Listeney to reduce opportunity gaps in interviews, presentations, and admissions by objectively diagnosing users' speaking habits through speech-to-text and natural-language-processing technologies.",
+            "Led problem definition, product planning, scoring design, IR materials, and investor pitching; designed a six-category feedback system covering grammar, vocabulary, spacing, punctuation, fluency, and pronunciation estimation.",
+            "Rebuilt the team after three initial members left during MVP development by recruiting an app developer from KAIST Financial Analysis Club and reorganizing milestones around core functions.",
+            "Presented IR pitches to 17 venture investors, including Zero-to-One Partners, IBK Venture Capital, and Blue Point Partners.",
+            "Received the Korea Artificial Intelligence Software Industry Association Chairman's Award at the 2025 SW Talent Festival, hosted by the Ministry of Science and ICT and organized by IITP and the SW-Centered University Council.",
+            "Received the Silver Prize at Culture-Tech Startup Challenge 2025, organized by the KAIST Graduate School of Culture Technology."
+          ]
+        },
+        {
+          "name": "2025 Global Entrepreneurship Summer School (GESS)",
+          "location": "Daejeon, Republic of Korea",
+          "role": "Fellow",
+          "date": "Mar. 2025 - Jun. 2025",
+          "bullets": [
+            "Selected as a KAIST fellow and developed an AI-driven digital-nomad startup proposal with an international, cross-disciplinary team.",
+            "Completed lectures, mentoring sessions, business-model workshops, and IR pitch preparation focused on venture scalability and global market strategy."
+          ]
+        }
+      ]
+    },
+    {
+      "title": "Investment & Industry Analysis",
+      "items": [
+        {
+          "name": "KAIST Financial Analysis Club (KFAC)",
+          "location": "Daejeon, Republic of Korea",
+          "role": "Researcher, Team Leader",
+          "date": "Feb. 2024 - Jun. 2025",
+          "bullets": [
+            "Led equity research and valuation projects on Samsung Biologics and Amorepacific, combining industry analysis with DCF and comparable-company valuation.",
+            "Analyzed ADC, CDMO, biosimilar, and cosmetics markets; built financial models based on pipeline assumptions, market growth, and future cash-flow scenarios.",
+            "Earned 1st place in the Spring 2024 Time Folio IVY Club competition and 3rd place in the Fall 2024 competition."
+          ]
+        }
+      ]
+    },
+    {
+      "title": "Research Experience",
+      "items": [
+        {
+          "name": "DAIM LABS, Prof. Young-Jae Jang Laboratory",
+          "location": "Daejeon, Republic of Korea",
+          "role": "Undergraduate Researcher",
+          "date": "Jul. 2026 - Present",
+          "bullets": [
+            "Developing a manufacturing process innovation project within DAIM LABS, focusing on Automated Material Handling System (AMHS) simulation.",
+            "Interested in modeling material-flow bottlenecks, dispatching logic, and throughput improvement in semiconductor and advanced manufacturing systems."
+          ]
+        },
+        {
+          "name": "Prof. Young-Suk Lee Laboratory",
+          "location": "Daejeon, Republic of Korea",
+          "role": "Undergraduate Researcher, Bioinformatics and Organoid Quality Evaluation",
+          "date": "Dec. 2024 - Sep. 2025",
+          "bullets": [
+            "Presented the poster \"Organoid-Tissue Similarity Quantification for Quality Evaluation\" at the 2025 IE Frontier Undergraduate Poster Competition.",
+            "Developed a quantitative framework for organoid-tissue similarity using single-cell RNA-seq data, PCA-space distance metrics, and linear-programming-based minimum-cost matching.",
+            "Validated the metric by comparing high- and low-quality colon organoids against native colon and liver tissue references, supporting reproducible quality evaluation in biomanufacturing.",
+            "Received the Top Excellence Award for translating qualitative biomedical evaluation into an engineering metric.",
+            "Conducted eye-organoid single-cell analysis, including GEO data retrieval, FASTQC quality control, Cell Ranger alignment, R-based downstream analysis, and journal-club discussions."
+          ]
+        }
+      ]
+    },
+    {
+      "title": "Leadership & Teaching Experience",
+      "items": [
+        {
+          "name": "KAIST Industrial and Systems Engineering Student Council",
+          "location": "Daejeon, Republic of Korea",
+          "role": "Vice President",
+          "date": "Mar. 2025 - Present",
+          "bullets": [
+            "Coordinated student-facing programs and communication across department members, supporting academic, community, and student-welfare initiatives."
+          ]
+        },
+        {
+          "name": "KAIST Science Outreach Program (KSOP)",
+          "location": "KAIST · Hybrid",
+          "role": "Teacher and Mentor",
+          "date": "Aug. 2025 - Present",
+          "bullets": [
+            "Taught and mentored middle-school students preparing for science high-school admissions through KAIST's flagship outreach program for underrepresented STEM talent.",
+            "Designed a preparation track for scientific reasoning, problem solving, interview structure, and personalized academic coaching; supported two students admitted to science high schools."
+          ]
+        },
+        {
+          "name": "KAIST Cyber Gifted Education Center",
+          "location": "Remote",
+          "role": "Tutor",
+          "date": "2024 - 2025",
+          "bullets": [
+            "Provided online STEM tutoring and feedback to gifted students, strengthening learners' problem-solving processes and academic communication."
+          ]
+        },
+        {
+          "name": "KAIST Overseas Volunteer Program, Santo Lukas High School",
+          "location": "Jakarta, Indonesia",
+          "role": "Education Volunteer",
+          "date": "Dec. 2025 - Jan. 2026",
+          "bullets": [
+            "Planned and delivered in-person educational outreach programs, adapting lesson content during flood-related disruptions to preserve learning opportunities.",
+            "Organized lesson design, teaching demonstrations, team rehearsals, and cultural-exchange activities with local students."
+          ]
+        },
+        {
+          "name": "Intermediate Speaking & Listening, Prof. John Looney",
+          "location": "Daejeon, Republic of Korea",
+          "role": "English Teaching Assistant",
+          "date": "May 2025 - Aug. 2025",
+          "bullets": [
+            "Assisted English presentation and discussion courses by grading assignments, supporting class operations, and providing feedback on clarity, delivery, and spoken fluency."
+          ]
+        }
+      ]
+    }
+  ],
+  "awards": [
+    {
+      "name": "2026 Presidential Science Scholarship",
+      "organization": "Korea Student Aid Foundation",
+      "date": "2026",
+      "description": "National scholarship recognizing outstanding science and engineering students with creativity, academic excellence, research potential, and commitment to future contribution."
+    },
+    {
+      "name": "2026 ISE Scholarship",
+      "organization": "KAIST Industrial and Systems Engineering",
+      "date": "2026",
+      "description": "Department scholarship awarded by KAIST Industrial and Systems Engineering."
+    },
+    {
+      "name": "2026 Inseong Scholarship",
+      "organization": "KAIST",
+      "date": "2026",
+      "description": "Scholarship established to encourage students who demonstrate sound values, character, initiative, consideration for others, and exemplary conduct."
+    },
+    {
+      "name": "2026 CoE Leadership Award",
+      "organization": "KAIST College of Engineering",
+      "date": "2026",
+      "description": "Award recognizing leadership and contribution within the College of Engineering."
+    },
+    {
+      "name": "Top Excellence Award, 2025 IE Frontier Undergraduate Poster Competition",
+      "organization": "KAIST Industrial and Systems Engineering",
+      "date": "2025",
+      "description": "Awarded for the poster \"Organoid-Tissue Similarity Quantification for Quality Evaluation.\""
+    },
+    {
+      "name": "Korea Artificial Intelligence Software Industry Association Chairman's Award, 2025 SW Talent Festival",
+      "organization": "Ministry of Science and ICT, IITP, SW-Centered University Council",
+      "date": "2025",
+      "description": "Awarded for Listeney, an AI-powered language habit correction platform."
+    },
+    {
+      "name": "Silver Prize, Culture-Tech Startup Challenge 2025",
+      "organization": "KAIST Graduate School of Culture Technology",
+      "date": "2025",
+      "description": "Awarded for a culture-technology startup idea applying speech data and AI feedback to communication training."
+    }
+  ],
+  "skills": {
+    "Languages": "Korean (native), English (proficient)",
+    "Technical Skills": "Python (advanced), R (intermediate), MATLAB (intermediate), single-cell RNA-seq analysis, financial modeling",
+    "Certifications & Training": "Completed 2026 ASPIRE UIDC",
+    "Activities": "2025-2026 ISE Student Council, KAIMED medical-science convergence activities, Korean Buddy, KAIST Official School Visit Delegation",
+    "Interests": "Manufacturing process innovation, AMHS simulation, bioinformatics, education technology"
+  }
+}

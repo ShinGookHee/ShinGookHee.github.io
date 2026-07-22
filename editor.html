@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Edit CV | Gookhee Shin</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body class="editor-body">
+    <nav class="toolbar" aria-label="Editor actions">
+      <a class="brand" href="index.html" aria-label="Back to CV">
+        <span class="monogram" aria-hidden="true">GS</span>
+        <span>CV Editor</span>
+      </a>
+      <div class="actions">
+        <a class="button" href="index.html" title="View CV">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M15 18l-6-6 6-6" />
+          </svg>
+          View
+        </a>
+        <button class="button" id="resetDraft" type="button" title="Reset browser draft">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M3 12a9 9 0 1 0 3-6.7" />
+            <path d="M3 3v6h6" />
+          </svg>
+          Reset
+        </button>
+        <button class="button primary" id="saveDraft" type="button" title="Save draft in this browser">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2Z" />
+            <path d="M17 21v-8H7v8" />
+            <path d="M7 3v5h8" />
+          </svg>
+          Save
+        </button>
+      </div>
+    </nav>
+
+    <main class="editor-layout">
+      <section class="editor-panel">
+        <div class="editor-header">
+          <div>
+            <h1>Edit Resume Data</h1>
+            <p>Changes save to this browser. Download JSON and replace <code>resume.json</code> before pushing to GitHub.</p>
+          </div>
+          <button class="button" id="downloadEditorJson" type="button" title="Download edited JSON">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+              <path d="M7 10l5 5 5-5" />
+              <path d="M12 15V3" />
+            </svg>
+            Download
+          </button>
+        </div>
+        <textarea id="jsonEditor" spellcheck="false" aria-label="Resume JSON editor"></textarea>
+        <p id="editorStatus" class="status" role="status">Loading resume data...</p>
+      </section>
+
+      <aside class="help-panel">
+        <h2>GitHub Pages Flow</h2>
+        <ol>
+          <li>Edit JSON here.</li>
+          <li>Press Save to preview on this browser.</li>
+          <li>Download JSON.</li>
+          <li>Replace <code>resume.json</code> in your GitHub repository.</li>
+          <li>Commit and push.</li>
+        </ol>
+      </aside>
+    </main>
+
+    <script src="editor.js"></script>
+  </body>
+</html>
