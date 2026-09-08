@@ -4,14 +4,13 @@
     "location": "Daejeon, Republic of Korea",
     "email": "annshin06@kaist.ac.kr",
     "headline": "Industrial and Systems Engineering student working across optimization, bioinformatics, manufacturing systems, and social-impact technology.",
-    "about": "I am an undergraduate student in Industrial and Systems Engineering at KAIST, with a double major in Business and Technology Management. My work connects optimization, data analysis, biomedical systems, manufacturing innovation, and education technology. I am especially interested in turning uncertain real-world problems into measurable decision-making frameworks that can create practical value for healthcare, advanced manufacturing, and learning opportunities."
+    "about": "I am an undergraduate student in Industrial and Systems Engineering at KAIST. My work connects optimization, data analysis, biomedical systems, manufacturing innovation, and education technology. I am especially interested in turning uncertain real-world problems into measurable decision-making frameworks that can create practical value for healthcare, advanced manufacturing, and learning opportunities."
   },
   "education": [
     {
       "institution": "KAIST",
       "location": "Daejeon, Republic of Korea",
       "degree": "Candidate for BEng in Industrial and Systems Engineering",
-      "minor": "Candidate for BEng in Business and Technology Management, Double Major",
       "date": "Feb. 2024 - Expected Feb. 2027"
     },
     {
@@ -198,6 +197,12 @@
       "organization": "Korea Student Aid Foundation",
       "date": "2026",
       "description": "National scholarship recognizing outstanding science and engineering students with creativity, academic excellence, research potential, and commitment to future contribution."
+    },
+    {
+      "name": "IPESK Next-Generation Engineer Open Badge",
+      "organization": "Korea Institute for Promotion of Engineering and Science Korea",
+      "date": "Sep. 2026",
+      "description": "Dean-recommended distinction for outstanding undergraduates at global research universities."
     },
     {
       "name": "Dean's List, Spring 2026",
