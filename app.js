@@ -252,9 +252,17 @@ function renderResume(resume) {
   ].join("");
 }
 
+function scrollToHash() {
+  const id = decodeURIComponent(window.location.hash.slice(1));
+  if (!id) return;
+  document.getElementById(id)?.scrollIntoView({ block: "start" });
+}
+
 loadResume()
   .then((resume) => {
     renderResume(resume);
+    scrollToHash();
+    window.addEventListener("hashchange", scrollToHash);
     document.getElementById("downloadJson")?.addEventListener("click", () => downloadJson(resume));
   })
   .catch((error) => {
