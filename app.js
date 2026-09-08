@@ -38,7 +38,7 @@ function renderAbout(profile) {
     `
       <div class="row about-row">
         <div class="details profile-visual no-print">
-          <img class="img" src="images/img" alt="Gookhee Shin profile photo" />
+          <img class="img" src="images/img" width="132" height="132" alt="Gookhee Shin profile photo" />
         </div>
         <div class="content">
           <p>${escapeHtml(about)}</p>
@@ -111,6 +111,71 @@ function renderSectionGroup(group) {
   return section(slug, group.title, group.items.map(renderEntry).join(""));
 }
 
+function downloadIcon() {
+  return `
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M12 3v12"></path>
+      <path d="m7 10 5 5 5-5"></path>
+      <path d="M5 21h14"></path>
+    </svg>
+  `;
+}
+
+function renderReports(reports = []) {
+  if (!reports.length) return "";
+
+  const cards = reports
+    .map((report) => {
+      const facts = [
+        ["Method", report.method],
+        ["Target", report.target],
+        ["Valuation date", report.valuationDate],
+        ["Primary methodology", report.primaryMethodology],
+        ["Role", report.contribution],
+      ].filter(([, value]) => value);
+
+      return `
+        <article class="report-card">
+          <a class="report-thumb no-print" href="${escapeHtml(report.href)}" target="_blank" rel="noopener">
+            <img src="${escapeHtml(report.thumbnail)}" alt="${escapeHtml(report.title)} cover" loading="lazy" />
+          </a>
+          <div class="report-content">
+            <div class="report-heading">
+              <h4>${escapeHtml(report.title)}</h4>
+              <p>${escapeHtml([report.role, report.pages, report.date].filter(Boolean).join(" · "))}</p>
+            </div>
+            ${
+              report.summary?.length
+                ? `<ul class="report-summary">${report.summary.map((line) => `<li>${escapeHtml(line)}</li>`).join("")}</ul>`
+                : ""
+            }
+            <dl class="report-facts">
+              ${facts
+                .map(
+                  ([label, value]) => `
+                    <div>
+                      <dt>${escapeHtml(label)}</dt>
+                      <dd>${escapeHtml(value)}</dd>
+                    </div>
+                  `,
+                )
+                .join("")}
+            </dl>
+            <div class="report-actions no-print">
+              <a class="button primary" href="${escapeHtml(report.href)}" target="_blank" rel="noopener">View Report</a>
+              <a class="button icon-button" href="${escapeHtml(report.download || report.href)}" download aria-label="Download ${escapeHtml(report.title)} PDF">
+                ${downloadIcon()}
+              </a>
+            </div>
+          </div>
+        </article>
+      `;
+    })
+    .join("");
+
+  return section("reports", "Selected Reports", `<div class="report-grid">${cards}</div>`);
+}
+
 function renderAwards(awards = []) {
   if (!awards.length) return "";
   const rows = awards
@@ -180,6 +245,7 @@ function renderResume(resume) {
   document.getElementById("cv").innerHTML = [
     renderAbout(resume.profile),
     renderEducation(resume.education),
+    renderReports(resume.reports),
     orderedSections(resume.sections).map(renderSectionGroup).join(""),
     renderAwards(resume.awards),
     renderSkills(resume.skills),

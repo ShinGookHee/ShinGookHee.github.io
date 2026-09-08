@@ -25,6 +25,46 @@
       "date": "Mar. 2019 - Feb. 2022"
     }
   ],
+  "reports": [
+    {
+      "title": "Amorepacific Equity Research",
+      "role": "Team Leader",
+      "date": "Jun. 30, 2025",
+      "pages": "79-page report",
+      "method": "DCF valuation with market and industry analysis",
+      "target": "Target price KRW 143,266; Buy rating",
+      "valuationDate": "Price reference date: Apr. 30, 2025",
+      "primaryMethodology": "Discounted Cash Flow (DCF), WACC sensitivity analysis",
+      "contribution": "Led KFAC Research Team 2; contributed to valuation assumptions, industry analysis, target-price narrative, and final report synthesis.",
+      "summary": [
+        "Led a KFAC equity research team on Amorepacific's global portfolio shift, COSRX acquisition, channel restructuring, and digital strategy.",
+        "Performed DCF-based valuation and presented a KRW 143,266 target price with 31.9% upside from the Apr. 30, 2025 reference price.",
+        "For educational purposes only; not investment advice."
+      ],
+      "thumbnail": "reports/amorepacific-equity-research-2025.png",
+      "href": "/reports/amorepacific-equity-research-2025.pdf",
+      "download": "/reports/amorepacific-equity-research-2025.pdf"
+    },
+    {
+      "title": "Samsung Biologics Equity Research",
+      "role": "Researcher",
+      "date": "May 24, 2024",
+      "pages": "47-page report",
+      "method": "DCF valuation with CDMO, ADC, and biosimilar market analysis",
+      "target": "Target price KRW 933,312; Buy rating",
+      "valuationDate": "Price reference date: May 24, 2024",
+      "primaryMethodology": "Discounted Cash Flow (DCF), revenue forecast, and sensitivity checks",
+      "contribution": "Contributed as a KFAC researcher; supported analysis of CDMO capacity, portfolio diversification, and valuation narrative.",
+      "summary": [
+        "Analyzed Samsung Biologics' CDMO capacity leadership, ADC expansion, and biosimilar portfolio diversification.",
+        "Supported valuation logic around future revenue scenarios and presented a KRW 933,312 target price with 24.2% upside from the May 24, 2024 reference price.",
+        "For educational purposes only; not investment advice."
+      ],
+      "thumbnail": "reports/samsung-biologics-equity-research-2024.png",
+      "href": "/reports/samsung-biologics-equity-research-2024.pdf",
+      "download": "/reports/samsung-biologics-equity-research-2024.pdf"
+    }
+  ],
   "sections": [
     {
       "title": "Entrepreneurship & Startup Experience",

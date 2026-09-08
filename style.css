@@ -197,6 +197,97 @@ textarea:focus-visible {
   margin-top: 0.45rem;
 }
 
+.report-grid {
+  display: grid;
+  gap: 1rem;
+}
+
+.report-card {
+  display: grid;
+  grid-template-columns: minmax(8rem, 12rem) minmax(0, 1fr);
+  gap: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid #e6e6e6;
+}
+
+.report-card:first-child {
+  padding-top: 0;
+  border-top: 0;
+}
+
+.report-thumb {
+  display: block;
+  align-self: start;
+  border: 1px solid var(--line);
+  background: #ffffff;
+  overflow: hidden;
+}
+
+.report-thumb img {
+  display: block;
+  width: 100%;
+  aspect-ratio: 2 / 3;
+  object-fit: cover;
+  object-position: top center;
+}
+
+.report-heading h4,
+.report-heading p {
+  margin: 0;
+}
+
+.report-heading h4 {
+  font-size: 1.08rem;
+  line-height: 1.2;
+}
+
+.report-heading p {
+  margin-top: 0.18rem;
+  color: var(--muted);
+}
+
+.report-summary {
+  margin: 0.4rem 0 0;
+  padding-left: 1.25rem;
+}
+
+.report-summary li {
+  margin: 0.1rem 0;
+}
+
+.report-facts {
+  display: grid;
+  gap: 0.22rem;
+  margin: 0.55rem 0 0;
+}
+
+.report-facts div {
+  display: grid;
+  grid-template-columns: minmax(7.5rem, 24%) minmax(0, 1fr);
+  gap: 0.75rem;
+}
+
+.report-facts dt,
+.report-facts dd {
+  margin: 0;
+}
+
+.report-facts dt {
+  font-weight: 700;
+}
+
+.report-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  margin-top: 0.8rem;
+}
+
+.icon-button {
+  justify-content: center;
+  width: 2.35rem;
+}
+
 .site-footer {
   padding: 1rem 0 1.5rem;
   color: var(--muted);
@@ -356,8 +447,18 @@ textarea {
 @media (max-width: 780px) {
   .header-grid,
   .row,
+  .report-card,
   .editor-layout {
     grid-template-columns: 1fr;
+  }
+
+  .report-thumb {
+    max-width: 12rem;
+  }
+
+  .report-facts div {
+    grid-template-columns: 1fr;
+    gap: 0.05rem;
   }
 
   .header-right {
@@ -411,6 +512,14 @@ textarea {
   .site-footer,
   .toolbar {
     display: none !important;
+  }
+
+  .report-card {
+    display: block;
+  }
+
+  .report-card + .report-card {
+    margin-top: 0.18in;
   }
 
   a {
