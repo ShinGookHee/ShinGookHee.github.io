@@ -20,6 +20,7 @@
 :lang(en) .node-row span:first-child{white-space:normal}
 @media(max-width:520px){:lang(en) .header-right{gap:8px;max-width:none}:lang(en) .header-right [role=status]{max-width:68px}}
 .collection-records{margin-top:20px}
+.collection-nav{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:8px}
 .collection-records .export-actions{margin-top:0}
 .collection-table{overflow-x:auto}
 .collection-table table{min-width:620px}

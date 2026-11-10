@@ -118,7 +118,7 @@ async function refresh() {
 
 function demoSetup() {
   const adminLink = sharedDemo
-    ? `<a class="btn soft demo-link" href="http://127.0.0.1:8767/admin" target="_blank" rel="noopener noreferrer">${t('관리자 로그인 (로컬)','Admin login (local)')}</a>`
+    ? `<a class="btn soft demo-link" href="http://127.0.0.1:8767/admin" rel="noreferrer">${t('관리자 로그인 (로컬)','Admin login (local)')}</a>`
     : '';
   return `<div class="intro"><div class="eyebrow">IE416 · ${sharedDemo?t('공유 데모','Public demo'):'English demo'}</div>
     <h1>${t('AI의 추천 순서를 검토해 보세요','Review an AI recommendation')}</h1>
@@ -222,10 +222,31 @@ function setup() {
         for(const id of ['seed','prelude_s','review_s','question_s','decision_s'])body[id]=Number($(id).value);
       }
       const next=await api('/api/study/sessions',body);
+      if (sharedDemo && !history.state?.ie416DemoCondition) {
+        history.pushState({ie416DemoCondition:body.condition}, '');
+      }
       auth={id:next.view.id,token:next.token};remember();renderKey='';install(next.view);
     }catch(error){reportError(error);$('create').disabled=false;}
   };
 }
+
+function restoreDemoPage() {
+  const condition = history.state?.ie416DemoCondition;
+  const previous = state?.config.condition;
+  setup();
+  if (['table','node'].includes(condition)) {
+    $('condition').value = condition;
+    $('setup').requestSubmit();
+  } else if (previous) {
+    $('condition').value = previous;
+  }
+}
+
+function returnToSetup() {
+  if (sharedDemo && history.state?.ie416DemoCondition) history.back();
+  else setup();
+}
+
 function demoInstructions() {
   $('app').innerHTML = `<section class="panel instructions">
     <div class="eyebrow">${t('데모 안내','Demo instructions')}</div>
@@ -259,8 +280,10 @@ function demoInstructions() {
       <li><strong>${t('유지 또는 수정을 고르세요.','Choose whether to keep or revise the order.')}</strong> ${t('하나라도 늦으면 수정이 필요합니다. 다음 화면에서 ↑ ↓로 순서를 맞춘 뒤 최종 순서를 확정합니다. 유지라면 그대로 확정하세요.','Revise the order if any request finishes late. On the next screen, use ↑ and ↓ to arrange the robots and confirm. If you chose to keep the order, confirm it as shown.')}</li>
       <li><strong>${t('화면이 가려지면 세 문항에 답하세요.','If the display is hidden, answer three questions.')}</strong> ${t('일부 시행은 순서 결정 대신 방금 본 변화나 순서에 대해 묻습니다. 답을 고르면 다음 문항이 나옵니다.','Some trials ask what you saw or what would happen under a different order. Select an answer to move to the next question.')}</li>
     </ol>
+    <button type="button" class="btn soft" id="demo-back">${t('← 설정으로','← Back to setup')}</button>
     ${button(t('데모 시작 →','Begin demo →'),'start')}
   </section>`;
+  $('demo-back').onclick = returnToSetup;
   document.querySelectorAll('[data-example-choice]').forEach(choice => {
     choice.onclick = () => {
       const correct = choice.dataset.exampleChoice === 'change';
@@ -455,7 +478,7 @@ function finished(){
       <p class="subtle form-note">${t('판단 무응답이 있으면 균형 정확도는 공란입니다.','Balanced accuracy is blank if a decision is missing.')} ${sharedDemo?'':t('시선 값은 수집하지 않으며 events에 AOI와 화면 전환 시각만 있습니다.','The events file includes areas of interest and screen transition times.')}</p>
     </details><button type="button" class="btn" id="new-session">${t('새 세션 준비','Prepare a new demo')}</button></section>`;
   document.querySelectorAll('[data-export]').forEach(el=>el.onclick=()=>download(el.dataset.export));
-  $('new-session').onclick=()=>setup();
+  $('new-session').onclick=returnToSetup;
 }
 function render(){
   cancelAnimationFrame(previewFrame);
@@ -528,7 +551,10 @@ async function boot(){
         }
       }
     }
-    setup();
+    if (sharedDemo) {
+      window.addEventListener('popstate',restoreDemoPage);
+      restoreDemoPage();
+    } else setup();
   }catch(error){$('app').innerHTML=`<section class="panel center-stage"><h1>${t('서버에 연결하지 못했습니다.','Could not connect to the server')}</h1><p>${t('study_server.py를 실행한 뒤 이 페이지를 새로고침하세요.','Start study_server.py and reload this page.')}</p></section>`;reportError(error);}
 }
 boot();
