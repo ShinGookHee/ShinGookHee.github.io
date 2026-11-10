@@ -26,6 +26,13 @@
 :lang(en) .state-table th{overflow-wrap:anywhere}
 :lang(en) .node-row span:first-child{white-space:normal}
 @media(max-width:520px){:lang(en) .header-right{gap:8px;max-width:none}:lang(en) .header-right [role=status]{max-width:68px}}
+.collection-records{margin-top:20px}
+.collection-records .export-actions{margin-top:0}
+.collection-table{overflow-x:auto}
+.collection-table table{min-width:620px}
+.collection-table td a{white-space:nowrap}
+#invite-result{margin-top:16px}
+#copy{justify-self:start}
 
 </style>
 
@@ -204,7 +211,7 @@ async function api(path, body, {blob = false} = {}) {
     const fallback = t('서버 응답 오류 ', 'Server error ') + response.status;
     throw new Error(data.error && !(english && /[가-힣]/.test(data.error)) ? data.error : fallback);
   }
-  $('save-state').textContent = t('로컬 기록 연결됨', 'Local storage connected');
+  $('save-state').textContent = protocol?.collection ? '수집 서버 연결됨' : t('로컬 기록 연결됨', 'Local storage connected');
   $('save-state').classList.remove('save-warning');
   return blob ? response.blob() : response.json();
 }
@@ -259,6 +266,9 @@ function bindActions() {
   document.querySelectorAll('[data-action]').forEach(el=>el.onclick=()=>{
     if(el.dataset.action==='judge') action('judge',{judgment:el.dataset.choice});
     else if(el.dataset.action==='confirm') action('confirm',{order:selectedOrder});
+    else if(el.dataset.action==='start' && protocol?.collection) {
+      if ($('consent-confirmed').checked) action('start',{consent_confirmed:true});
+    }
     else action(el.dataset.action);
   });
 }
@@ -294,9 +304,12 @@ async function refresh() {
 }
 
 function demoSetup() {
+  const adminLink = sharedDemo
+    ? `<a class="btn soft demo-link" href="http://127.0.0.1:8767/admin" target="_blank" rel="noopener noreferrer">${t('관리자 로그인 (로컬)','Admin login (local)')}</a>`
+    : '';
   return `<div class="intro"><div class="eyebrow">IE416 · ${sharedDemo?t('공유 데모','Public demo'):'English demo'}</div>
     <h1>${t('AI의 추천 순서를 검토해 보세요','Review an AI recommendation')}</h1>
-    <p>${t('창고 로봇 세 대의 도움 요청을 감독합니다. 창고 상황이 바뀌면 기존 추천 순서로 모든 마감을 지킬 수 있는지 판단하세요.','Supervise three robots, review a change in the warehouse, and decide whether the recommended order still meets every deadline.')}</p></div>
+    <p>${t('창고 로봇 세 대의 도움 요청을 감독합니다. 창고 상황이 바뀌면 기존 추천 순서로 모든 마감을 지킬 수 있는지 판단하세요.','Supervise three robots, review a change in the warehouse, and decide whether the recommended order still meets every deadline.')}</p>${adminLink}</div>
     <div class="setup-grid">
       <form class="panel setup-form" id="setup"><div class="eyebrow">${t('데모 설정','Demo setup')}</div><h2>${t('화면 형식 선택','Choose an interface')}</h2>
         <div class="field"><label for="condition">${t('화면 형식','Interface')}</label><select id="condition"><option value="node">${t('노드링크','Node-link view')}</option><option value="table">${t('표 형식','Table view')}</option></select></div>
@@ -319,6 +332,13 @@ function setup() {
   state = null;
   if (sharedDemo) auth = null;
   const resume = auth ? `<div class="resume"><div><strong>${t('저장된 세션이 있습니다.', 'A demo is saved.')}</strong><p>${esc(auth.id)} · ${t('화면을 다시 열어 이어갈 수 있습니다.', 'You can continue from where you left off.')}</p></div><button class="btn small" id="resume">${t('세션 이어가기', 'Resume demo')}</button></div>` : '';
+  if (protocol?.collection) {
+    $('app').innerHTML = resume + `<section class="panel center-stage"><div class="eyebrow">IE416 · 참가자 접속</div>
+      <h1>로봇 감독 실험</h1><p>연구자에게 받은 개인 참가 링크를 열어 주세요.</p>
+      <a class="btn small" href="/admin">연구자 로그인</a></section>`;
+    if (auth) $('resume').onclick = async () => {renderKey='';await refresh();queueEvent('reload',{phase:state?.phase});};
+    return;
+  }
   $('app').innerHTML=resume+(demoSetupOnly ? demoSetup() : `
     <div class="intro"><div class="eyebrow">Study workbench / IE416</div><h1>AI의 추천을,<br>현재 상황으로 다시 판단하기</h1><p>상황 변화로 부적절해진 개입 순서를 발견하고 수정하는 감독 실험입니다. 동일한 정보를 표와 노드링크로 제공하고 이해·예측과 의사결정을 기록합니다.</p><a class="btn soft demo-link" href="/?lang=en">영어 데모 <span aria-hidden="true">→</span></a></div>
     <div class="setup-grid"><form class="panel setup-form" id="setup"><div class="eyebrow">연구자 설정</div><h2>실험 세션 만들기</h2>
@@ -415,8 +435,14 @@ function instructions(){
     <div class="rule-inline">예: 예상 완료 <strong>12분</strong>, 마감 <strong>12분</strong>이면 허용됩니다.<br>예상 완료 <strong>13분</strong>, 마감 <strong>12분</strong>이면 마감 위반입니다.</div>
     <p class="subtle">표시된 시간은 변화 시점부터의 모의 분입니다. 화면 검토 중에는 상태와 모의 시간이 고정됩니다. 화면의 지도는 공통 맥락이며 개입 소요시간을 이동 거리로 계산하지 않습니다.</p>
     <p class="subtle">${state.total_practice?`연습 ${state.total_practice}시행 후 본 ${state.total_main}시행을 진행합니다. 본 시행 12회마다 휴식 화면이 나옵니다.`:'데모 6시행을 진행합니다. 데모 기록은 본 실험과 구분됩니다.'}</p>
-    ${button(state.total_practice?'연습 시작 →':'데모 시작 →','start')}</section>`;
+    ${protocol?.collection ? `<p><strong>참가자 코드 ${esc(state.config.participant)}</strong></p>
+      <label class="check-line"><input type="checkbox" id="consent-confirmed">
+      <span>연구자가 제공한 안내를 읽고 별도 동의 절차를 완료했습니다.</span></label>` : ''}
+    ${button(state.total_practice?'연습 시작 →':'데모 시작 →','start',protocol?.collection?'disabled':'')}</section>`;
   bindActions();
+  if (protocol?.collection) $('consent-confirmed').onchange = event => {
+    document.querySelector('[data-action="start"]').disabled = !event.target.checked;
+  };
 }
 function sessionTop(){
   const practice=state.practice;
@@ -551,6 +577,10 @@ async function download(kind){
   try{const blob=await api(`/api/study/sessions/${auth.id}/${kind}`,null,{blob:true});const url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=`ie416-${state.config.participant}-${kind}.${kind==='json'?'json':'csv'}`;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}catch(error){reportError(error);}
 }
 function finished(){
+  if (protocol?.collection) {
+    $('app').innerHTML = '<section class="panel center-stage"><div class="eyebrow">IE416 · 실험 완료</div><h1>응답이 저장되었습니다.</h1><p>참여해 주셔서 감사합니다. 이 창을 닫아도 됩니다.</p></section>';
+    return;
+  }
   const summary=state.summary;
   const stats = [
     [t('UI 조건','Interface'),summary.condition==='node'?t('노드링크','Node-link'):t('표 형식','Table')],
@@ -626,6 +656,29 @@ async function boot(){
   try{[map,protocol]=await Promise.all([api('/api/study/map'),api('/api/study/protocol')]);
     if (!sharedDemo) {
       try{const saved=JSON.parse(localStorage.getItem(STORE));if(saved?.id&&saved?.token)auth=saved;}catch(_){}
+    }
+    if (protocol?.collection) {
+      $('local-indicator').textContent = '실험 수집';
+      $('save-state').textContent = '수집 서버 연결됨';
+      $('footer-note').textContent = '모의 AI 추천 · 완료 마감 기준 · 서버 기록';
+      const join = /^#join=([a-f0-9]{16})\.([A-Za-z0-9_-]{32})$/.exec(location.hash);
+      if (join) {
+        const previous = auth;
+        auth = {id:join[1],token:join[2]};
+        try {
+          const next = await api(`/api/study/sessions/${auth.id}`);
+          remember();
+          history.replaceState(null,'',location.pathname + location.search);
+          install(next);
+          if (next.phase !== 'instructions') queueEvent('reload',{phase:next.phase});
+          return;
+        } catch (error) {
+          auth = previous;
+          setup();
+          reportError(error);
+          return;
+        }
+      }
     }
     setup();
   }catch(error){$('app').innerHTML=`<section class="panel center-stage"><h1>${t('서버에 연결하지 못했습니다.','Could not connect to the server')}</h1><p>${t('study_server.py를 실행한 뒤 이 페이지를 새로고침하세요.','Start study_server.py and reload this page.')}</p></section>`;reportError(error);}
