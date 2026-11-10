@@ -45,7 +45,7 @@ async function refresh() {
   if (!groups.length) {
     const cell = table.insertRow().insertCell();
     cell.colSpan = 7;
-    cell.textContent = '아직 발급된 참가 세션이 없습니다.';
+    cell.textContent = '아직 접수된 참가 세션이 없습니다.';
     return;
   }
   for (const group of groups) {

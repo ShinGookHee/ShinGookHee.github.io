@@ -79,7 +79,7 @@ function bindActions() {
   document.querySelectorAll('[data-action]').forEach(el=>el.onclick=()=>{
     if(el.dataset.action==='judge') action('judge',{judgment:el.dataset.choice});
     else if(el.dataset.action==='confirm') action('confirm',{order:selectedOrder});
-    else if(el.dataset.action==='start' && protocol?.collection) {
+    else if(el.dataset.action==='start' && state.consent_required) {
       if ($('consent-confirmed').checked) action('start',{consent_confirmed:true});
     }
     else action(el.dataset.action);
@@ -117,9 +117,12 @@ async function refresh() {
 }
 
 function demoSetup() {
+  const adminLink = sharedDemo
+    ? `<a class="btn soft demo-link" href="http://127.0.0.1:8767/admin" target="_blank" rel="noopener noreferrer">${t('관리자 로그인 (로컬)','Admin login (local)')}</a>`
+    : '';
   return `<div class="intro"><div class="eyebrow">IE416 · ${sharedDemo?t('공유 데모','Public demo'):'English demo'}</div>
     <h1>${t('AI의 추천 순서를 검토해 보세요','Review an AI recommendation')}</h1>
-    <p>${t('창고 로봇 세 대의 도움 요청을 감독합니다. 창고 상황이 바뀌면 기존 추천 순서로 모든 마감을 지킬 수 있는지 판단하세요.','Supervise three robots, review a change in the warehouse, and decide whether the recommended order still meets every deadline.')}</p></div>
+    <p>${t('창고 로봇 세 대의 도움 요청을 감독합니다. 창고 상황이 바뀌면 기존 추천 순서로 모든 마감을 지킬 수 있는지 판단하세요.','Supervise three robots, review a change in the warehouse, and decide whether the recommended order still meets every deadline.')}</p>${adminLink}</div>
     <div class="setup-grid">
       <form class="panel setup-form" id="setup"><div class="eyebrow">${t('데모 설정','Demo setup')}</div><h2>${t('화면 형식 선택','Choose an interface')}</h2>
         <div class="field"><label for="condition">${t('화면 형식','Interface')}</label><select id="condition"><option value="node">${t('노드링크','Node-link view')}</option><option value="table">${t('표 형식','Table view')}</option></select></div>
@@ -137,14 +140,48 @@ function demoSetup() {
     </div>`;
 }
 
+function enrollmentSetup(mode, code) {
+  const key = STORE + '-enrollment-' + mode;
+  let browserKey = uid();
+  try {browserKey = localStorage.getItem(key) || browserKey;} catch (_) {}
+  $('app').innerHTML = `<section class="panel center-stage"><div class="eyebrow">IE416 · ${mode === 'pilot' ? '파일럿' : '본 실험'}</div>
+    <h1>로봇 감독 실험에 참여하기</h1>
+    <p>이름이나 연락처를 입력할 필요가 없습니다. 응답은 서버에서 만든 세션 번호로 저장됩니다.</p>
+    <form id="enroll"><label class="check-line"><input type="checkbox" required>
+      <span>연구자가 제공한 안내를 읽고 별도 동의 절차를 완료했습니다.</span></label>
+      <button class="btn primary" type="submit">실험 안내 보기 →</button></form></section>`;
+  $('enroll').onsubmit = async event => {
+    event.preventDefault();
+    const submit = event.submitter;
+    submit.disabled = true;
+    try {localStorage.setItem(key, browserKey);} catch (_) {}
+    const previous = auth;
+    auth = null;
+    try {
+      const next = await api('/api/collection/enroll',{mode,code,browser_key:browserKey,consent_confirmed:true});
+      auth = {id:next.view.id,token:next.token};
+      remember();
+      history.replaceState(null,'',location.pathname + location.search);
+      install(next.view);
+      if (next.view.phase !== 'instructions') queueEvent('reload',{phase:next.view.phase});
+    } catch (error) {
+      auth = previous;
+      reportError(error);
+      submit.disabled = false;
+    }
+  };
+}
+
 function setup() {
   clearTimeout(pollTimer);clearInterval(countdown);cancelAnimationFrame(previewFrame);
   state = null;
   if (sharedDemo) auth = null;
   const resume = auth ? `<div class="resume"><div><strong>${t('저장된 세션이 있습니다.', 'A demo is saved.')}</strong><p>${esc(auth.id)} · ${t('화면을 다시 열어 이어갈 수 있습니다.', 'You can continue from where you left off.')}</p></div><button class="btn small" id="resume">${t('세션 이어가기', 'Resume demo')}</button></div>` : '';
   if (protocol?.collection) {
+    const link = /^#study=(pilot|main)\.([a-f0-9]{64})$/.exec(location.hash);
+    if (link) return enrollmentSetup(link[1],link[2]);
     $('app').innerHTML = resume + `<section class="panel center-stage"><div class="eyebrow">IE416 · 참가자 접속</div>
-      <h1>로봇 감독 실험</h1><p>연구자에게 받은 개인 참가 링크를 열어 주세요.</p>
+      <h1>로봇 감독 실험</h1><p>연구자에게 받은 공용 참가 링크를 열어 주세요.</p>
       <a class="btn small" href="/admin">연구자 로그인</a></section>`;
     if (auth) $('resume').onclick = async () => {renderKey='';await refresh();queueEvent('reload',{phase:state?.phase});};
     return;
@@ -240,17 +277,18 @@ function instructions(){
     demoInstructions();
     return;
   }
+  const requiresConsent = protocol?.collection && state.consent_required;
   $('app').innerHTML=`<section class="panel instructions"><div class="eyebrow">참가자 안내 / 실험 세션</div><h1>세 로봇의 개입 순서를 검토하세요</h1><p>한 사람이 세 개입 요청을 한 번에 하나씩 처리합니다. 시스템의 추천을 참고하되, 현재 상황에 맞는지 직접 판단하세요.</p>
     <ol><li><strong>완료 마감이 기준입니다.</strong><p>개입을 시작하는 시각이 아니라 끝내는 시각이 마감 이내여야 합니다. 처리 순서에 따라 기다리는 시간이 달라집니다.</p></li><li><strong>처음 추천은 적절하지만 상황이 달라질 수 있습니다.</strong><p>마감이 앞당겨지거나 개입 시간이 늘어납니다. 변화가 있어도 기존 순서가 계속 적절할 수 있고, 변화가 없는 시행도 있습니다.</p></li><li><strong>화면 검토 후 질문에 응답합니다.</strong><p>일부 시행은 화면을 가린 뒤 3개 객관식 질문이 나옵니다. 다른 시행은 기존 순서의 유지 가능 여부를 판단하고 최종 순서를 정합니다. 본 시행 중 정답은 제공되지 않습니다.</p></li></ol>
     <div class="rule-inline">예: 예상 완료 <strong>12분</strong>, 마감 <strong>12분</strong>이면 허용됩니다.<br>예상 완료 <strong>13분</strong>, 마감 <strong>12분</strong>이면 마감 위반입니다.</div>
     <p class="subtle">표시된 시간은 변화 시점부터의 모의 분입니다. 화면 검토 중에는 상태와 모의 시간이 고정됩니다. 화면의 지도는 공통 맥락이며 개입 소요시간을 이동 거리로 계산하지 않습니다.</p>
     <p class="subtle">${state.total_practice?`연습 ${state.total_practice}시행 후 본 ${state.total_main}시행을 진행합니다. 본 시행 12회마다 휴식 화면이 나옵니다.`:'데모 6시행을 진행합니다. 데모 기록은 본 실험과 구분됩니다.'}</p>
-    ${protocol?.collection ? `<p><strong>참가자 코드 ${esc(state.config.participant)}</strong></p>
+    ${requiresConsent ? `<p><strong>세션 코드 ${esc(state.config.participant)}</strong></p>
       <label class="check-line"><input type="checkbox" id="consent-confirmed">
       <span>연구자가 제공한 안내를 읽고 별도 동의 절차를 완료했습니다.</span></label>` : ''}
-    ${button(state.total_practice?'연습 시작 →':'데모 시작 →','start',protocol?.collection?'disabled':'')}</section>`;
+    ${button(state.total_practice?'연습 시작 →':'데모 시작 →','start',requiresConsent?'disabled':'')}</section>`;
   bindActions();
-  if (protocol?.collection) $('consent-confirmed').onchange = event => {
+  if (requiresConsent) $('consent-confirmed').onchange = event => {
     document.querySelector('[data-action="start"]').disabled = !event.target.checked;
   };
 }
@@ -378,10 +416,10 @@ function survey(){
   tlxTouched=new Set();
   $('app').innerHTML=`<form class="panel survey" id="survey"><div class="eyebrow">Post experiment / NASA TLX</div><h1>${t('전체 과제의 작업부하','Task workload')}</h1><p>${t('여섯 항목을 모두 조정해 응답하세요. 0부터 100까지, 전체 과제를 기준으로 평가합니다.','Adjust all six sliders. Rate the entire task on each scale from 0 to 100.')}</p>
     ${tlxItems.map(([id,label,low=t('매우 낮음','Very low'),high=t('매우 높음','Very high')])=>`<div class="tlx-item"><div class="tlx-heading"><label for="tlx-${id}">${label}</label><output id="out-${id}">${t('미응답','Unanswered')}</output></div><input id="tlx-${id}" data-tlx="${id}" type="range" min="0" max="100" step="5" value="50" aria-label="${label}"><div class="tlx-anchors"><span>0 · ${low}</span><span>100 · ${high}</span></div></div>`).join('')}
-    <div class="field"><label for="notes">${t('불편하거나 이해하기 어려웠던 점 · 선택','Anything unclear or difficult? (Optional)')}</label><textarea id="notes" maxlength="2000" placeholder="${t('이름이나 연락처 등 개인정보를 적지 마세요.','Leave out names and contact details.') }"></textarea></div>
+    ${protocol?.collection ? '' : `<div class="field"><label for="notes">${t('불편하거나 이해하기 어려웠던 점 · 선택','Anything unclear or difficult? (Optional)')}</label><textarea id="notes" maxlength="2000" placeholder="${t('이름이나 연락처 등 개인정보를 적지 마세요.','Leave out names and contact details.') }"></textarea></div>`}
     <p class="subtle form-note">${t('이 구현은 비가중 Raw TLX 평균을 사용합니다. 수행 항목은 높을수록 수행이 나빴음을 뜻합니다.','Raw TLX is the unweighted average. Higher performance ratings indicate poorer performance.')}</p><button type="submit" class="btn primary wide" id="finish-survey" disabled>${t('설문 제출 및 종료','Submit and finish')}</button></form>`;
   document.querySelectorAll('[data-tlx]').forEach(input=>input.oninput=()=>{tlxTouched.add(input.dataset.tlx);$('out-'+input.dataset.tlx).textContent=input.value;$('finish-survey').disabled=tlxTouched.size!==6;});
-  $('survey').onsubmit=event=>{event.preventDefault();const tlx={};document.querySelectorAll('[data-tlx]').forEach(el=>tlx[el.dataset.tlx]=Number(el.value));action('survey',{tlx,notes:$('notes').value});};
+  $('survey').onsubmit=event=>{event.preventDefault();const tlx={};document.querySelectorAll('[data-tlx]').forEach(el=>tlx[el.dataset.tlx]=Number(el.value));action('survey',{tlx,notes:$('notes')?.value || ''});};
 }
 async function download(kind){
   try{const blob=await api(`/api/study/sessions/${auth.id}/${kind}`,null,{blob:true});const url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=`ie416-${state.config.participant}-${kind}.${kind==='json'?'json':'csv'}`;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}catch(error){reportError(error);}

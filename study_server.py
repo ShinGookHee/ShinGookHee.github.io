@@ -94,7 +94,7 @@ def validate_config(body):
     return result
 
 
-def create_session(body, *, collection=False):
+def create_session(body, *, collection=False, enrollment_hash=None):
     config = validate_config(body)
     if config["condition"] == "auto":
         counts = {"table": 0, "node": 0}
@@ -118,8 +118,12 @@ def create_session(body, *, collection=False):
                "screen": "instructions", "index": 0, "active": None, "records": [], "events": [],
                "survey": {}, "requests": {}}
     if collection:
-        session["collection"] = {"acknowledged_utc": None}
+        session["collection"] = {"acknowledged_utc": utc() if enrollment_hash else None}
+        if enrollment_hash:
+            session["collection"]["enrollment_hash"] = enrollment_hash
     log(session, "session_created", {"config": config})
+    if enrollment_hash:
+        log(session, "consent_procedure_acknowledged")
     save(session)
     SESSIONS[session["id"]] = session
     return session
@@ -232,6 +236,8 @@ def view(session):
             "total_main": 6 if session["config"]["mode"] == "demo" else 36,
             "completed_practice": sum(r["practice"] for r in session["records"]),
             "total_practice": 0 if session["config"]["mode"] == "demo" else 4}
+    if "collection" in session:
+        base["consent_required"] = not session["collection"]["acknowledged_utc"]
     if current_phase == "finished":
         base["summary"] = aggregate(session)
     if session["screen"] != "trial":
@@ -286,7 +292,7 @@ def act(session, body):
     if client_ms is not None and (not isinstance(client_ms, (int, float)) or not math.isfinite(client_ms)):
         raise ValueError("Invalid client timestamp")
     if action == "start" and current_phase == "instructions":
-        if "collection" in session:
+        if "collection" in session and not session["collection"]["acknowledged_utc"]:
             if body.get("consent_confirmed") is not True:
                 raise ValueError("별도 연구 안내 및 동의 절차를 확인하세요.")
             session["collection"]["acknowledged_utc"] = utc()
@@ -377,6 +383,9 @@ def csv_payload(session, kind):
 
 def json_payload(session):
     data = {key: value for key, value in session.items() if key != "token"}
+    if "collection" in data:
+        data["collection"] = {key: value for key, value in data["collection"].items()
+                              if key != "enrollment_hash"}
     return json.dumps(data, ensure_ascii=False, indent=2, allow_nan=False).encode()
 
 

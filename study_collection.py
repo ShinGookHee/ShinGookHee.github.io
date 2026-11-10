@@ -1,6 +1,7 @@
-"""Participant invitations and researcher access for the IE416 study."""
+"""Shared participant entry and researcher access for the IE416 study."""
 import argparse
 from collections import defaultdict
+import hashlib
 import hmac
 import io
 import os
@@ -9,6 +10,7 @@ from pathlib import Path
 import re
 import secrets
 from statistics import mean
+import tempfile
 from urllib.parse import urlsplit
 from zipfile import ZIP_DEFLATED, ZipFile
 
@@ -21,6 +23,8 @@ from study_protocol import load_sa_bank
 WEB = study.ROOT / "web" / "study"
 EXPORTS = ("summary", "trials", "answers", "events", "json")
 SESSION_ID = re.compile(r"[a-f0-9]{16}")
+ENROLLMENT_KEY = re.compile(r"[a-f0-9]{32}")
+STUDY_MODES = ("pilot", "main")
 LOCAL_DATA = study.ROOT / "study-data" / "collection"
 TEAM_METRICS = ("sa_primary", "balanced_accuracy", "final_accuracy", "raw_tlx")
 
@@ -40,6 +44,24 @@ def stored_sessions():
             record = study.load(path.stem)
             if "collection" in record:
                 yield record
+
+
+def shared_link_secret(directory):
+    path = directory / ".shared-link-key"
+    if not path.exists():
+        with tempfile.NamedTemporaryFile(dir=directory, delete=False) as stream:
+            temporary = Path(stream.name)
+            try:
+                stream.write(secrets.token_bytes(32))
+                stream.flush()
+                os.fsync(stream.fileno())
+                os.replace(temporary, path)
+            finally:
+                temporary.unlink(missing_ok=True)
+    key = path.read_bytes()
+    if len(key) != 32:
+        raise ValueError("The shared link key is invalid.")
+    return key
 
 
 def team_results():
@@ -82,6 +104,7 @@ def create_app(*, data_dir=None, public_url=None, password=None, viewer_password
     if directory == study.ROOT / "web" or (study.ROOT / "web") in directory.parents:
         raise ValueError("Use a data directory outside the web directory.")
     directory.mkdir(mode=0o700, parents=True, exist_ok=True)
+    link_secret = shared_link_secret(directory)
     with study.LOCK:
         study.DATA = directory
         study.SESSIONS.clear()
@@ -122,7 +145,6 @@ def create_app(*, data_dir=None, public_url=None, password=None, viewer_password
     @app.errorhandler(401)
     @app.errorhandler(403)
     @app.errorhandler(404)
-    @app.errorhandler(409)
     @app.errorhandler(413)
     @app.errorhandler(415)
     def http_error(error):
@@ -162,15 +184,20 @@ def create_app(*, data_dir=None, public_url=None, password=None, viewer_password
         origin = public_url or request.host_url.rstrip("/")
         return f"{origin}/#join={record['id']}.{record['token']}"
 
+    def link_code(mode):
+        return hmac.new(link_secret, mode.encode(), "sha256").hexdigest()
+
     def session_row(record):
         config = record["config"]
         completed = sum(not item["practice"] for item in record["records"])
-        status = "finished" if record["screen"] == "finished" else (
-            "active" if record["collection"]["acknowledged_utc"] else "invited"
-        )
+        if record["screen"] == "instructions":
+            status = "ready" if record["collection"]["acknowledged_utc"] else "invited"
+        else:
+            status = "finished" if record["screen"] == "finished" else "active"
         return {"id": record["id"], "participant": config["participant"], "mode": config["mode"],
                 "condition": config["condition"], "created_utc": record["created_utc"],
-                "finished_utc": record.get("finished_utc"), "completed_main": completed, "status": status}
+                "finished_utc": record.get("finished_utc"), "completed_main": completed, "status": status,
+                "legacy_invite": "enrollment_hash" not in record["collection"]}
 
     @app.get("/")
     def participant_page():
@@ -211,7 +238,10 @@ def create_app(*, data_dir=None, public_url=None, password=None, viewer_password
     def action(identifier):
         payload = body()
         with study.LOCK:
-            return jsonify(participant_view(study.act(participant_record(identifier), payload)))
+            record = participant_record(identifier)
+            if "enrollment_hash" in record["collection"]:
+                payload.pop("notes", None)
+            return jsonify(participant_view(study.act(record, payload)))
 
     @app.post("/api/study/sessions/<identifier>/events")
     def events(identifier):
@@ -249,33 +279,44 @@ def create_app(*, data_dir=None, public_url=None, password=None, viewer_password
         with study.LOCK:
             return jsonify(groups=team_results(), researcher=session.get("researcher") is True)
 
+    @app.get("/api/collection/admin/links")
+    def shared_links():
+        origin = public_url or request.host_url.rstrip("/")
+        return jsonify(links={mode: f"{origin}/#study={mode}.{link_code(mode)}" for mode in STUDY_MODES})
+
     @app.get("/api/collection/admin/sessions")
     def list_sessions():
         with study.LOCK:
             rows = sorted(map(session_row, stored_sessions()), key=lambda row: row["created_utc"], reverse=True)
         return jsonify(sessions=rows)
 
-    @app.post("/api/collection/admin/sessions")
-    def issue_invitation():
+    @app.post("/api/collection/enroll")
+    def enroll():
         payload = body()
         mode = payload.get("mode")
-        if mode not in ("pilot", "main"):
-            abort(400, "파일럿 또는 본 실험을 선택하세요.")
-        participant = payload.get("participant")
-        if not isinstance(participant, str):
-            abort(400, "참가자 코드를 입력하세요.")
-        config = study.validate_config({"participant": participant.strip().upper(), "mode": mode})
+        if mode not in STUDY_MODES or not same_secret(payload.get("code"), link_code(mode)):
+            abort(403, "연구자가 안내한 공용 참가 링크를 확인해 주세요.")
+        if payload.get("consent_confirmed") is not True:
+            abort(400, "별도 연구 안내 및 동의 절차를 확인하세요.")
+        browser_key = payload.get("browser_key")
+        if not isinstance(browser_key, str) or not ENROLLMENT_KEY.fullmatch(browser_key):
+            abort(400, "이 브라우저에서 참가 세션을 시작할 수 없습니다.")
+        enrollment_hash = hashlib.sha256(f"{mode}:{browser_key}".encode()).hexdigest()
         with study.LOCK:
-            if any(record["config"]["participant"] == config["participant"]
-                   and record["config"]["mode"] == mode for record in stored_sessions()):
-                abort(409, "이미 이 참가자 코드로 만든 링크가 있습니다. 목록에서 링크를 다시 열 수 있습니다.")
-            record = study.create_session(config, collection=True)
-            return jsonify(session=session_row(record), invite=invitation(record)), 201
+            for record in stored_sessions():
+                if record["collection"].get("enrollment_hash") == enrollment_hash:
+                    return jsonify(token=record["token"], view=participant_view(study.view(record)))
+            config = {"participant": "S-" + secrets.token_hex(8).upper(), "mode": mode}
+            record = study.create_session(config, collection=True, enrollment_hash=enrollment_hash)
+            return jsonify(token=record["token"], view=participant_view(study.view(record))), 201
 
     @app.get("/api/collection/admin/sessions/<identifier>/invite")
     def show_invite(identifier):
         with study.LOCK:
-            return jsonify(invite=invitation(read_record(identifier)))
+            record = read_record(identifier)
+            if "enrollment_hash" in record["collection"]:
+                abort(404, "이 세션에는 개인 참가 링크가 없습니다.")
+            return jsonify(invite=invitation(record))
 
     @app.get("/api/collection/admin/sessions/<identifier>/<kind>")
     def export_session(identifier, kind):

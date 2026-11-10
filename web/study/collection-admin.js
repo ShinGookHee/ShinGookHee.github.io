@@ -36,19 +36,22 @@ async function refresh() {
   $('login-panel').hidden = true;
   $('dashboard').hidden = false;
   const complete = sessions.filter(s => s.status === 'finished').length;
-  $('session-count').textContent = `전체 ${sessions.length}명 · 완료 ${complete}명`;
+  $('session-count').textContent = `전체 ${sessions.length}세션 · 완료 ${complete}세션`;
+  const hasLegacyLinks = sessions.some(s => s.legacy_invite);
+  $('legacy-links').hidden = !hasLegacyLinks;
   const exports = {summary:'요약',trials:'시행',answers:'문항',events:'이벤트',json:'JSON'};
-  const status = {invited:'초대 발급',active:'진행 중',finished:'완료'};
+  const status = {invited:'기존 초대',ready:'참가 접수',active:'진행 중',finished:'완료'};
   $('rows').innerHTML = sessions.map(s => {
     const path = root + '/sessions/' + encodeURIComponent(s.id);
     return `<tr><td><strong>${esc(s.participant)}</strong></td><td>${s.mode==='pilot'?'파일럿':'본 실험'}</td>
       <td>${s.condition==='table'?'표':'노드링크'}</td><td>${status[s.status]} · ${s.completed_main}/36</td>
-      <td><button type="button" class="btn small" data-invite="${esc(s.id)}">열기</button></td>
+      ${hasLegacyLinks ? `<td>${s.legacy_invite ? `<button type="button" class="btn small" data-invite="${esc(s.id)}">열기</button>` : '—'}</td>` : ''}
       <td>${Object.entries(exports).map(([kind,label])=>`<a href="${path}/${kind}">${label}</a>`).join(' · ')}</td></tr>`;
-  }).join('') || '<tr><td colspan="6">아직 발급한 참가 링크가 없습니다.</td></tr>';
+  }).join('') || '<tr><td colspan="5">아직 접수된 참가 세션이 없습니다.</td></tr>';
 }
 
-function showInvite(invite) {
+function showInvite(invite, label) {
+  $('invite-label').textContent = label;
   $('invite-result').hidden = false;
   $('invite-link').value = invite;
   $('invite-link').focus();
@@ -65,22 +68,18 @@ $('login').onsubmit = async event => {
   } catch (error) {notice(error.message);}
   finally {$('password').value = '';submit.disabled = false;}
 };
-$('new-invite').onsubmit = async event => {
-  event.preventDefault();
-  const submit = event.submitter;
-  submit.disabled = true;
+$('study-links').onclick = async event => {
+  const mode = event.target.closest('[data-study-mode]')?.dataset.studyMode;
+  if (!mode) return;
   try {
-    const {invite} = await api('/sessions',{participant:$('participant').value,mode:$('mode').value});
-    showInvite(invite);
-    $('participant').value = '';
-    await refresh();
+    const {links} = await api('/links');
+    showInvite(links[mode], mode === 'pilot' ? '공용 파일럿 참가 링크' : '공용 본 실험 참가 링크');
   } catch (error) {notice(error.message);}
-  finally {submit.disabled = false;}
 };
 $('rows').onclick = async event => {
   const button = event.target.closest('[data-invite]');
   if (!button) return;
-  try {showInvite((await api('/sessions/' + encodeURIComponent(button.dataset.invite) + '/invite')).invite);}
+  try {showInvite((await api('/sessions/' + encodeURIComponent(button.dataset.invite) + '/invite')).invite,'기존 개별 참가 링크');}
   catch (error) {notice(error.message);}
 };
 $('copy').onclick = async () => {
