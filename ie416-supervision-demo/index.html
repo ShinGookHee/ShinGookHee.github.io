@@ -34,6 +34,16 @@
 .collection-table td a{white-space:nowrap}
 #invite-result{margin-top:16px}
 #copy{justify-self:start}
+.survey form>h2,.survey form>p{margin-top:12px}
+.survey-pair{display:flex;flex-wrap:wrap;gap:12px 24px;margin:14px 0 0;padding:10px 14px;border:1px solid var(--border);border-radius:6px}
+.survey-pair legend,.survey-rating>label{font-weight:600}
+.survey-pair label{cursor:pointer}
+.survey-rating p{margin:8px 0}
+.survey-rating input[type=number]{width:7em;margin:8px 0 0;padding:8px}
+.interview-section{margin-top:25px;padding-top:18px;border-top:1px solid var(--border)}
+.survey .interview-item{margin-top:18px}
+.interview-item .details{margin:0}
+.survey-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:20px}
 
 </style>
 
@@ -49,6 +59,7 @@
 (() => {
   'use strict';
   const data = JSON.parse(document.getElementById('demo-data').textContent);
+  const surveyVersion = 'weighted-tlx-interview-v1';
   let session;
 
   const ratio = (count, total) => total ? count / total : null;
@@ -75,7 +86,7 @@
       projection:accuracy('projection','subtype'), hit_rate:hitRate, false_alarm_rate:falseAlarmRate,
       missing_judgments:missingJudgments, final_accuracy:ratio(behavior.filter(r => r.final_correct).length, behavior.length),
       balanced_accuracy:missingJudgments ? null : (hitRate + 1 - falseAlarmRate) / 2,
-      raw_tlx:survey.raw_tlx
+      raw_tlx:survey.raw_tlx, weighted_tlx:survey.weighted_tlx, survey_version:survey.version
     };
   }
 
@@ -101,7 +112,7 @@
     const {id, config, deck, index, active} = session;
     const trial = deck[index];
     const now = Date.now();
-    const base = {id, config, phase:session.screen, server_epoch_ms:now,
+    const base = {id, config, phase:session.screen, server_epoch_ms:now, survey_version:surveyVersion,
       total_main:deck.length, completed_main:session.records.length,
       total_practice:0, completed_practice:0, practice:false, trial_id:active ? trial.id : null};
     if (base.phase === 'finished') return {...base, summary:summarize()};
@@ -155,8 +166,11 @@
       active.questionEnd = null;
       if (active.answers.length === trial.questions.length) finishTrial({answers:active.answers});
     } else if (body.action === 'survey' && current.phase === 'survey') {
-      session.survey = {tlx:body.tlx, notes:body.notes,
-        raw_tlx:Object.values(body.tlx).reduce((sum, value) => sum + value, 0) / 6};
+      const {tlx, pairwise, interview} = body;
+      const weights = Object.fromEntries(Object.keys(tlx).map(item => [item,pairwise.filter(choice => choice === item).length]));
+      session.survey = {version:surveyVersion, tlx, pairwise, tlx_weights:weights, interview,
+        raw_tlx:Object.values(tlx).reduce((sum, value) => sum + value, 0) / 6,
+        weighted_tlx:Object.entries(tlx).reduce((sum,[item,value]) => sum + value * weights[item], 0) / 15};
       session.screen = 'finished';
     } else if (current.phase !== 'trial_done') {
       throw invalidAction();
@@ -255,7 +269,7 @@ async function action(name, payload = {}, retryRequest = null) {
     reportError(error);
     // A response can be lost after the server saved it. Recover its state
     // instead of submitting a new answer against a stale question.
-    try {renderKey='';install(await api(`/api/study/sessions/${auth.id}`));}
+    try {if(name!=='survey')renderKey='';install(await api(`/api/study/sessions/${auth.id}`));}
     catch (_) {clearTimeout(pollTimer);pollTimer=setTimeout(refresh,2500);}
   }
   finally {busy=false;document.querySelectorAll('[data-submit]').forEach(el=>el.disabled=false);}
@@ -619,11 +633,68 @@ const tlxItems=[
   ['mental',t('정신적 요구','Mental demand')],
   ['physical',t('신체적 요구','Physical demand')],
   ['temporal',t('시간적 요구','Temporal demand')],
-  ['performance',t('수행','Performance'),t('매우 잘 수행함','Very good'),t('매우 못 수행함','Very poor')],
+  ['performance',t('수행 성과','Performance'),t('좋음','Good'),t('나쁨','Poor')],
   ['effort',t('노력','Effort')],
   ['frustration',t('좌절감','Frustration')],
 ];
-function survey(){
+const tlxPrompts = {
+  mental:t('과제를 수행하는 동안 얼마나 많은 정신적·지각적 활동이 필요했습니까? 예를 들어 생각하기, 판단하기, 계산하기, 기억하기, 보기, 탐색하기 등이 얼마나 요구되었습니까? 과제가 쉬웠습니까, 어려웠습니까? 단순했습니까, 복잡했습니까?',
+    'How much mental and perceptual activity did the task require, such as thinking, judging, calculating, remembering, looking or searching? Was the task easy or difficult, simple or complex?'),
+  physical:t('과제를 수행하는 동안 얼마나 많은 신체적 활동이 필요했습니까? 과제가 신체적으로 쉬웠습니까, 힘들었습니까? 느리고 여유로웠습니까, 빠르고 많은 노력이 필요했습니까?',
+    'How much physical activity did the task require? Was it physically easy or demanding, slow and leisurely or fast and strenuous?'),
+  temporal:t('과제의 진행 속도로 인해 얼마나 많은 시간적 압박을 느꼈습니까? 과제의 진행 속도가 느리고 여유로웠습니까, 아니면 빠르고 촉박했습니까?',
+    'How much time pressure did you feel because of the pace of the task? Was the pace slow and leisurely or fast and rushed?'),
+  performance:t('과제에서 요구된 목표를 얼마나 성공적으로 달성했다고 생각합니까? 자신의 수행 성과에 얼마나 만족하였습니까?',
+    'How successfully do you think you achieved the task goals? How satisfied were you with your performance?'),
+  effort:t('자신이 달성한 수준의 수행 성과를 얻기 위해 정신적·신체적으로 얼마나 열심히 노력해야 했습니까?',
+    'How hard did you have to work mentally and physically to achieve your level of performance?'),
+  frustration:t('과제를 수행하는 동안 얼마나 불안하고, 낙담하고, 짜증이 나고, 스트레스를 받았습니까? 반대로 얼마나 안정적이고, 만족스럽고, 편안하게 느꼈습니까?',
+    'How insecure, discouraged, irritated or stressed did you feel during the task? How secure, satisfied or relaxed did you feel?')
+};
+const interviewSections = [
+  [t('인터페이스 사용 경험','Interface experience'), [
+    ['q1',t('AI가 추천한 작업 순서를 확인할 때, 화면에서 어떤 정보를 가장 먼저 살펴보았습니까? 이후에는 어떤 순서로 정보를 확인했습니까?',
+      'What information on the screen did you look at first when reviewing the AI-recommended order? What did you look at next?'),
+      t('처음 확인한 정보와 마지막 판단에 사용한 정보가 같았나요?','Was the information you looked at first the same information you used for your final judgment?')],
+    ['q2',t('화면에서 찾기 어렵거나 의미를 파악하기 위해 여러 번 확인해야 했던 정보가 있었습니까?',
+      'Was any information hard to find or something you had to check repeatedly to understand?'),
+      t('완료 기한, 예상 완료 시점, 작업 순서, 변경 사항 중 해당하는 것이 있었나요?','Did this include deadlines, expected finish times, the work order or status changes?')]
+  ]],
+  [t('상황 변화의 이해 및 결과 예측','Understanding changes and predicting outcomes'), [
+    ['q3',t('로봇의 완료 기한이나 작업 조건이 변경되었을 때, 그 변화가 기존 추천 순서의 결과에 어떤 영향을 주는지 어떻게 파악했습니까?',
+      'When a robot deadline or work condition changed, how did you determine its effect on the outcome of the original recommendation?'),
+      t('화면에서 어떤 수치, 설명, 연결 관계를 함께 확인했나요?','Which numbers, explanations or connections did you look at together?')],
+    ['q4',t('기존 추천과 다른 작업 순서의 완료 시점을 예상해야 할 때, 어떤 방법으로 결과를 판단했습니까?',
+      'When you had to predict finish times for an order different from the original recommendation, how did you work out the outcome?'),
+      t('머릿속으로 계산하거나 기억해야 했던 정보 중 어려운 부분이 있었나요?','Was anything difficult to calculate mentally or remember?')]
+  ]],
+  [t('AI 추천의 유효성 판단과 신뢰','Judging and trusting the AI recommendation'), [
+    ['q5',t('기존 AI 추천 순서를 유지할지, 다른 순서로 수정할지 결정할 때 가장 중요하게 사용한 판단 기준은 무엇이었습니까?',
+      'What was the most important criterion you used when deciding whether to keep the AI recommendation or revise the order?'),
+      t('완료 기한과 예상 완료 시점 등을 어떻게 비교했나요?','How did you compare deadlines and expected finish times?')],
+    ['q6',t('기존 AI 추천을 그대로 따라도 된다고 느낀 상황과, 다시 검토해야 한다고 느낀 상황에는 어떤 차이가 있었습니까?',
+      'What differed between situations where you felt you could follow the original AI recommendation and those where you felt you should review it again?'),
+      t('추천을 믿거나 의심하게 만든 화면의 정보가 있었나요?','Did any on-screen information make you trust or question the recommendation?')]
+  ]],
+  [t('인지적 부담과 인터페이스 개선','Cognitive effort and interface improvements'), [
+    ['q7',t('실험 중 정보 이해나 의사결정에 가장 많은 정신적 노력이 필요했다고 느낀 순간은 언제였습니까?',
+      'When did understanding information or making a decision require the most mental effort?'),
+      t('변경 사항 발견, 영향 이해, 대안 순서 예측, 최종 선택 중 어느 과정이었나요?','Was it when detecting a change, interpreting its effect, predicting an alternative order or making the final choice?')],
+    ['q8',t('상황 변화로 기존 추천이 부적절해진 경우를 더 쉽게 알아차리려면, 화면에서 어떤 정보나 표현 방식을 개선하면 좋겠습니까?',
+      'What information or presentation could be improved to make it easier to spot a recommendation that became unsuitable after a change?'),
+      t('강조 표시, 정보의 배치, 수치 제시 방식 등에 관한 의견이 있나요?','Do you have suggestions about highlighting, layout or how numbers are presented?')]
+  ]]
+];
+const pilotQuestions = [
+  ['qp1',t('전체 36회 시행 중 피로하거나 집중하기 어려워진 구간이 있었습니까?',
+    'Was there a point during the 36 trials when you became tired or found it hard to concentrate?'),
+    t('언제부터였고 어떤 이유 때문이라고 생각하나요?','When did it start, and what do you think contributed to it?')],
+  ['qp2',t('화면을 가린 후 답하는 SA 문항이나 작업 순서 판단 과정에서 이해하기 모호했던 부분이 있었습니까?',
+    'Was anything unclear in the situation awareness questions after the screen was hidden or in deciding the work order?'),
+    t('특정 질문, 계산 과정, 실험 지침을 예로 들어 설명해 주실 수 있나요?','Could you give an example involving a question, calculation or instruction?')]
+];
+
+function legacySurvey(){
   tlxTouched=new Set();
   $('app').innerHTML=`<form class="panel survey" id="survey"><div class="eyebrow">Post experiment / NASA TLX</div><h1>${t('전체 과제의 작업부하','Task workload')}</h1><p>${t('여섯 항목을 모두 조정해 응답하세요. 0부터 100까지, 전체 과제를 기준으로 평가합니다.','Adjust all six sliders. Rate the entire task on each scale from 0 to 100.')}</p>
     ${tlxItems.map(([id,label,low=t('매우 낮음','Very low'),high=t('매우 높음','Very high')])=>`<div class="tlx-item"><div class="tlx-heading"><label for="tlx-${id}">${label}</label><output id="out-${id}">${t('미응답','Unanswered')}</output></div><input id="tlx-${id}" data-tlx="${id}" type="range" min="0" max="100" step="5" value="50" aria-label="${label}"><div class="tlx-anchors"><span>0 · ${low}</span><span>100 · ${high}</span></div></div>`).join('')}
@@ -631,6 +702,71 @@ function survey(){
     <p class="subtle form-note">${t('이 구현은 비가중 Raw TLX 평균을 사용합니다. 수행 항목은 높을수록 수행이 나빴음을 뜻합니다.','Raw TLX is the unweighted average. Higher performance ratings indicate poorer performance.')}</p><button type="submit" class="btn primary wide" id="finish-survey" disabled>${t('설문 제출 및 종료','Submit and finish')}</button></form>`;
   document.querySelectorAll('[data-tlx]').forEach(input=>input.oninput=()=>{tlxTouched.add(input.dataset.tlx);$('out-'+input.dataset.tlx).textContent=input.value;$('finish-survey').disabled=tlxTouched.size!==6;});
   $('survey').onsubmit=event=>{event.preventDefault();const tlx={};document.querySelectorAll('[data-tlx]').forEach(el=>tlx[el.dataset.tlx]=Number(el.value));action('survey',{tlx,notes:$('notes')?.value || ''});};
+}
+
+function survey() {
+  if (!state.survey_version) return legacySurvey();
+  const pairs = tlxItems.flatMap((item, i) => tlxItems.slice(i + 1).map(other => [item, other]));
+  const question = ([id, prompt, followup]) => `<div class="field interview-item">
+    <label for="interview-${id}">${id.toUpperCase()}. ${prompt}</label>
+    <details class="details"><summary>${t('선택 추가 질문','Optional follow-up')}</summary><p>${followup}</p></details>
+    <textarea id="interview-${id}" data-interview="${id}" maxlength="2000" rows="3"></textarea></div>`;
+  const title = t('NASA-TLX 주관적 작업부하 평가','NASA-TLX subjective workload');
+  const next = `<button type="submit" class="btn primary">${t('다음 →','Next →')}</button>`;
+  const back = `<button type="button" class="btn soft" data-survey-back>${t('← 이전','← Back')}</button>`;
+  $('app').innerHTML = `<section class="panel survey">
+    <div class="eyebrow">IE416 · ${t('실험 종료 후 설문','Post-task survey')}</div>
+    <form id="tlx-pairs" data-survey-step="1">
+      <div class="subtle">1 / 3</div><h1 tabindex="-1">${title}</h1>
+      <h2>${t('Part 1. 항목 간 비교','Part 1. Pairwise comparison')}</h2>
+      <p>${t(`방금 수행한 전체 과제(${state.total_main}회 시행)를 떠올리며, 각 쌍에서 작업부하에 더 크게 기여한 항목 하나를 고르세요.`,
+        `Think about the full task (${state.total_main} trials). In each pair, choose the item that contributed more to your workload.`)}</p>
+      ${pairs.map((pair, i) => `<fieldset class="survey-pair"><legend>${t('비교','Pair')} ${i + 1}</legend>
+        ${pair.map(([id,label], j) => `<label><input type="radio" name="pair-${i}" value="${id}" data-pair${j === 0 ? ' required' : ''}> ${label}</label>`).join('')}
+      </fieldset>`).join('')}
+      <div class="survey-actions">${next}</div>
+    </form>
+    <form id="tlx-ratings" data-survey-step="2" hidden>
+      <div class="subtle">2 / 3</div><h1 tabindex="-1">${title}</h1>
+      <h2>${t('Part 2. 작업부하 평가','Part 2. Rating scale')}</h2>
+      <p>${t('전체 과제에서 경험한 정도를 기준으로 각 항목에 0~100점을 입력하세요.','Rate each item from 0 to 100 based on your experience across the full task.')}</p>
+      ${tlxItems.map(([id,label,low=t('낮음','Low'),high=t('높음','High')], i) => `<div class="tlx-item survey-rating">
+        <label for="rating-${id}">Q${i + 1}. ${label}</label><p id="rating-prompt-${id}">${tlxPrompts[id]}</p>
+        <div id="rating-scale-${id}" class="subtle">0 ${low} · 100 ${high}</div>
+        <input id="rating-${id}" type="number" min="0" max="100" step="1" required data-rating="${id}" aria-describedby="rating-prompt-${id} rating-scale-${id}"> / 100
+      </div>`).join('')}
+      <div class="survey-actions">${back}${next}</div>
+    </form>
+    <form id="experience-survey" data-survey-step="3" hidden>
+      <div class="subtle">3 / 3</div><h1 tabindex="-1">${t('주관적 경험 조사','Subjective experience')}</h1>
+      <p>${t('정답은 없습니다. 실제로 사용한 화면과 과제에서 경험한 내용을 적어 주세요. 답하기 어려운 질문은 비워 두어도 됩니다. 이름이나 연락처 등 식별 정보는 적지 마세요.',
+        'There are no right answers. Describe your experience with the interface and task you used. You may skip any question. Leave out names, contact details and other identifying information.')}</p>
+      ${interviewSections.map(([heading,questions], i) => `<section class="interview-section"><h2>${i + 1}. ${heading}</h2>${questions.map(question).join('')}</section>`).join('')}
+      ${state.config.mode === 'pilot' ? `<section class="interview-section"><h2>${t('파일럿 추가 질문 (선택)','Optional pilot questions')}</h2>${pilotQuestions.map(question).join('')}</section>` : ''}
+      <div class="field interview-item"><label for="interview-additional">${t('추가 의견 (선택)','Additional comments (optional)')}</label>
+        <textarea id="interview-additional" data-interview="additional" maxlength="2000" rows="3"></textarea></div>
+      <div class="survey-actions">${back}<button type="submit" class="btn primary" data-submit>${t('설문 제출 및 종료','Submit and finish')}</button></div>
+    </form>
+  </section>`;
+  const showStep = index => {
+    document.querySelectorAll('[data-survey-step]').forEach(form => {
+      form.hidden = Number(form.dataset.surveyStep) !== index;
+      if (!form.hidden) form.querySelector('h1').focus();
+    });
+  };
+  $('tlx-pairs').onsubmit = event => {event.preventDefault();showStep(2);};
+  $('tlx-ratings').onsubmit = event => {event.preventDefault();showStep(3);};
+  document.querySelectorAll('[data-survey-back]').forEach(button => {
+    button.onclick = () => showStep(Number(button.closest('form').dataset.surveyStep) - 1);
+  });
+  $('experience-survey').onsubmit = event => {
+    event.preventDefault();
+    const pairwise = [...document.querySelectorAll('[data-pair]:checked')].map(input => input.value);
+    const tlx = Object.fromEntries([...document.querySelectorAll('[data-rating]')].map(input => [input.dataset.rating, Number(input.value)]));
+    const interview = Object.fromEntries([...document.querySelectorAll('[data-interview]')]
+      .filter(input => input.value.trim()).map(input => [input.dataset.interview, input.value.trim()]));
+    action('survey',{pairwise,tlx,interview});
+  };
 }
 async function download(kind){
   try{const blob=await api(`/api/study/sessions/${auth.id}/${kind}`,null,{blob:true});const url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=`ie416-${state.config.participant}-${kind}.${kind==='json'?'json':'csv'}`;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}catch(error){reportError(error);}
@@ -651,12 +787,14 @@ function finished(){
     [t('오탐률','False alarm rate'),percent(summary.false_alarm_rate)],
     [t('균형 정확도','Balanced accuracy'),percent(summary.balanced_accuracy)],
     [t('최종 순서 정확도','Final order accuracy'),percent(summary.final_accuracy)],
+    ['NASA-TLX',summary.weighted_tlx?.toFixed(1)||'—'],
     ['Raw TLX',summary.raw_tlx?.toFixed(1)||'—'],
     ...(sharedDemo ? [] : [[t('화면 이탈 시행','Interrupted trials'),summary.interrupted_trials]]),
     [t('무응답 판단','Unanswered decisions'),summary.missing_judgments],
   ];
   const exports = sharedDemo ? {json:t('데모 결과 JSON','Demo results JSON')} : {summary:t('요약 CSV','Summary CSV'),trials:t('시행 CSV','Trials CSV'),
-    answers:t('문항 CSV','Answers CSV'),events:t('이벤트 CSV','Events CSV'),json:t('전체 JSON','Full JSON')};
+    answers:t('문항 CSV','Answers CSV'),events:t('이벤트 CSV','Events CSV'),
+    survey:t('설문 CSV','Survey CSV'),json:t('전체 JSON','Full JSON')};
   $('app').innerHTML=`<section class="panel center-stage"><div class="eyebrow">Session complete</div>
     <h1>${sharedDemo?t('데모를 마쳤습니다.','Demo complete'):t('실험을 마쳤습니다.','Demo complete')}</h1><p>${sharedDemo?t('응답과 설문 결과를 확인하고 내려받을 수 있습니다.','View or download your responses and workload ratings.'):t(`참여해 주셔서 감사합니다. ${summary.completed_main}개 본 시행의 응답과 설문이 이 컴퓨터에 저장되었습니다.`,`Your ${summary.completed_main} trial responses and workload ratings are saved on this computer.`)}</p>
     <details class="details" id="research-summary"${sharedDemo?' open':''}><summary>${sharedDemo?t('결과 및 다운로드','Results and downloads'):t('연구자용 결과 및 내보내기','Results and downloads')}</summary>
