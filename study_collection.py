@@ -4,6 +4,8 @@ from collections import defaultdict
 import hashlib
 import hmac
 import io
+import json
+import math
 import os
 from datetime import timedelta
 from pathlib import Path
@@ -23,10 +25,11 @@ from study_protocol import load_sa_bank
 WEB = study.ROOT / "web" / "study"
 EXPORTS = ("summary", "trials", "answers", "events", "json")
 SESSION_ID = re.compile(r"[a-f0-9]{16}")
-ENROLLMENT_KEY = re.compile(r"[a-f0-9]{32}")
+NONCE = re.compile(r"[a-f0-9]{32}")
 STUDY_MODES = ("pilot", "main")
 LOCAL_DATA = study.ROOT / "study-data" / "collection"
 TEAM_METRICS = ("sa_primary", "balanced_accuracy", "final_accuracy", "raw_tlx")
+PUBLIC_DEMO_VERSION = "ie416-public-demo-v1"
 
 
 def participant_view(current):
@@ -82,6 +85,14 @@ def team_results():
     return rows
 
 
+def demo_result_row(identifier, record):
+    result = record["result"]
+    summary = result["summary"]
+    return {"id": identifier, "imported_utc": record["imported_utc"],
+            "condition": result["condition"], "language": result["language"],
+            **{key: summary[key] for key in ("completed_main", *TEAM_METRICS)}}
+
+
 def create_app(*, data_dir=None, public_url=None, password=None, viewer_password=None):
     public_url = (public_url or "").rstrip("/")
     if public_url:
@@ -105,6 +116,7 @@ def create_app(*, data_dir=None, public_url=None, password=None, viewer_password
         raise ValueError("Use a data directory outside the web directory.")
     directory.mkdir(mode=0o700, parents=True, exist_ok=True)
     link_secret = shared_link_secret(directory)
+    demo_dir = directory / "demo-imports"
     with study.LOCK:
         study.DATA = directory
         study.SESSIONS.clear()
@@ -145,6 +157,7 @@ def create_app(*, data_dir=None, public_url=None, password=None, viewer_password
     @app.errorhandler(401)
     @app.errorhandler(403)
     @app.errorhandler(404)
+    @app.errorhandler(409)
     @app.errorhandler(413)
     @app.errorhandler(415)
     def http_error(error):
@@ -290,6 +303,61 @@ def create_app(*, data_dir=None, public_url=None, password=None, viewer_password
             rows = sorted(map(session_row, stored_sessions()), key=lambda row: row["created_utc"], reverse=True)
         return jsonify(sessions=rows)
 
+    @app.get("/api/collection/admin/demo-results")
+    def list_demo_results():
+        with study.LOCK:
+            rows = [demo_result_row(path.stem, json.loads(path.read_text(encoding="utf-8")))
+                    for path in demo_dir.glob("*.json") if NONCE.fullmatch(path.stem)]
+        return jsonify(results=sorted(rows, key=lambda row: row["imported_utc"], reverse=True))
+
+    @app.post("/api/collection/admin/demo-results")
+    def import_demo_result():
+        payload = body()
+        identifier, result = payload.get("import_id"), payload.get("result")
+        if not isinstance(identifier, str) or not NONCE.fullmatch(identifier):
+            abort(400, "가져오기 요청 ID가 올바르지 않습니다.")
+        if (not isinstance(result, dict) or result.get("mode") != "public-demo"
+                or result.get("version") != PUBLIC_DEMO_VERSION
+                or result.get("condition") not in ("table", "node")
+                or result.get("language") not in ("ko", "en")):
+            abort(400, "공개 데모에서 다운로드한 결과 JSON을 선택하세요.")
+        summary, trials, survey = result.get("summary"), result.get("trials"), result.get("survey")
+        if (not isinstance(summary, dict) or summary.get("condition") != result["condition"]
+                or summary.get("completed_main") != 6
+                or not isinstance(trials, list) or len(trials) != 6
+                or any(not isinstance(row, dict) for row in trials)
+                or not isinstance(survey, dict) or not isinstance(survey.get("tlx"), dict)):
+            abort(400, "완료된 6회 데모의 결과 JSON을 선택하세요.")
+        for metric in TEAM_METRICS:
+            value = summary.get(metric)
+            if metric == "balanced_accuracy" and metric in summary and value is None:
+                continue
+            if (type(value) not in (int, float) or not math.isfinite(value)
+                    or not 0 <= value <= (100 if metric == "raw_tlx" else 1)):
+                abort(400, "데모 결과의 요약 점수를 확인할 수 없습니다.")
+        path = demo_dir / (identifier + ".json")
+        with study.LOCK:
+            if path.exists():
+                record = json.loads(path.read_text(encoding="utf-8"))
+                if record["result"] != result:
+                    abort(409, "같은 요청 ID로 다른 파일이 저장되어 있습니다.")
+                return jsonify(result=demo_result_row(identifier, record))
+            record = {"imported_utc": study.utc(), "result": result}
+            study.write_json_file(path, record)
+        return jsonify(result=demo_result_row(identifier, record)), 201
+
+    @app.get("/api/collection/admin/demo-results/<identifier>/json")
+    def export_demo_result(identifier):
+        if not NONCE.fullmatch(identifier):
+            abort(404)
+        path = demo_dir / (identifier + ".json")
+        with study.LOCK:
+            if not path.is_file():
+                abort(404)
+            record = json.loads(path.read_text(encoding="utf-8"))
+            content = json.dumps(record["result"], ensure_ascii=False, indent=2).encode()
+        return send_file(io.BytesIO(content), as_attachment=True, download_name=f"ie416-demo-{identifier}.json")
+
     @app.post("/api/collection/enroll")
     def enroll():
         payload = body()
@@ -299,7 +367,7 @@ def create_app(*, data_dir=None, public_url=None, password=None, viewer_password
         if payload.get("consent_confirmed") is not True:
             abort(400, "별도 연구 안내 및 동의 절차를 확인하세요.")
         browser_key = payload.get("browser_key")
-        if not isinstance(browser_key, str) or not ENROLLMENT_KEY.fullmatch(browser_key):
+        if not isinstance(browser_key, str) or not NONCE.fullmatch(browser_key):
             abort(400, "이 브라우저에서 참가 세션을 시작할 수 없습니다.")
         enrollment_hash = hashlib.sha256(f"{mode}:{browser_key}".encode()).hexdigest()
         with study.LOCK:

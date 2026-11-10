@@ -3,6 +3,7 @@ const $ = id => document.getElementById(id);
 const root = '/api/collection/admin';
 const esc = value => String(value).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 let noticeTimer;
+let demoImportId = null;
 
 function notice(message) {
   $('notice').textContent = message;
@@ -17,6 +18,7 @@ function showLogin() {
   $('invite-result').hidden = true;
   $('invite-link').value = '';
   $('rows').textContent = '';
+  $('demo-rows').textContent = '';
 }
 
 async function api(path, body) {
@@ -32,7 +34,7 @@ async function api(path, body) {
 }
 
 async function refresh() {
-  const {sessions} = await api('/sessions');
+  const [{sessions}, {results}] = await Promise.all([api('/sessions'),api('/demo-results')]);
   $('login-panel').hidden = true;
   $('dashboard').hidden = false;
   const complete = sessions.filter(s => s.status === 'finished').length;
@@ -48,6 +50,15 @@ async function refresh() {
       ${hasLegacyLinks ? `<td>${s.legacy_invite ? `<button type="button" class="btn small" data-invite="${esc(s.id)}">열기</button>` : '—'}</td>` : ''}
       <td>${Object.entries(exports).map(([kind,label])=>`<a href="${path}/${kind}">${label}</a>`).join(' · ')}</td></tr>`;
   }).join('') || '<tr><td colspan="5">아직 접수된 참가 세션이 없습니다.</td></tr>';
+  $('demo-count').textContent = `가져온 데모 ${results.length}건`;
+  const percent = value => value === null ? '—' : (value * 100).toFixed(1) + '%';
+  $('demo-rows').innerHTML = results.map(row => `<tr>
+    <td>${esc(new Date(row.imported_utc).toLocaleString('ko-KR'))}</td>
+    <td>${row.condition === 'node' ? '노드링크' : '표'} · ${row.language === 'ko' ? '한국어' : '영어'}</td>
+    <td>${row.completed_main}/6</td><td>${percent(row.sa_primary)}</td><td>${percent(row.balanced_accuracy)}</td>
+    <td>${percent(row.final_accuracy)}</td><td>${row.raw_tlx.toFixed(1)}</td>
+    <td><a href="${root}/demo-results/${encodeURIComponent(row.id)}/json">JSON</a></td></tr>`
+  ).join('') || '<tr><td colspan="8">가져온 데모 결과가 없습니다.</td></tr>';
 }
 
 function showInvite(invite, label) {
@@ -87,6 +98,27 @@ $('copy').onclick = async () => {
   catch (_) {$('invite-link').select();notice('선택된 참가 링크를 복사하세요.');}
 };
 $('refresh').onclick = () => refresh().catch(error => notice(error.message));
+$('demo-file').onchange = () => {demoImportId = null;};
+$('demo-import').onsubmit = async event => {
+  event.preventDefault();
+  const input = $('demo-file');
+  const file = input.files[0];
+  if (!file) return;
+  const submit = event.submitter;
+  input.disabled = submit.disabled = true;
+  try {
+    let result;
+    try {result = JSON.parse(await file.text());}
+    catch (_) {throw new Error('JSON 파일을 읽을 수 없습니다. 공개 데모에서 내려받은 결과 파일을 선택하세요.');}
+    demoImportId ??= crypto.randomUUID().replaceAll('-', '');
+    await api('/demo-results',{import_id:demoImportId,result});
+    $('demo-import').reset();
+    demoImportId = null;
+    await refresh();
+    notice('데모 결과를 가져왔습니다.');
+  } catch (error) {notice(error.message);}
+  finally {input.disabled = submit.disabled = false;}
+};
 $('logout').onclick = async () => {
   try {await api('/logout',{});showLogin();}
   catch (error) {notice(error.message);}

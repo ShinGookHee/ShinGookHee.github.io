@@ -46,6 +46,23 @@
         <tbody id="rows"></tbody>
       </table></div>
     </section>
+    <section class="panel overview-panel collection-records" aria-labelledby="demo-heading">
+      <div class="panel-heading"><div><h2 id="demo-heading">데모 JSON 가져오기</h2>
+        <p>공개 데모에서 내려받은 JSON을 선택하세요. 파일럿·본 실험과 별도로 저장됩니다.</p></div></div>
+      <form class="setup-form" id="demo-import">
+        <div class="field"><label for="demo-file">데모 결과 파일</label>
+          <input id="demo-file" type="file" accept=".json,application/json" required></div>
+        <button type="submit" class="btn primary">가져오기</button>
+      </form>
+      <div class="overview-content collection-table">
+        <p class="subtle" id="demo-count"></p>
+        <table class="protocol-table">
+          <thead><tr><th scope="col">가져온 시각</th><th scope="col">UI · 언어</th><th scope="col">시행</th>
+            <th scope="col">SA 합성</th><th scope="col">균형 정확도</th><th scope="col">최종 정확도</th><th scope="col">Raw TLX</th><th scope="col">다운로드</th></tr></thead>
+          <tbody id="demo-rows"></tbody>
+        </table>
+      </div>
+    </section>
   </section>
   <div id="notice" class="error-banner" role="status" hidden></div>
 </main>

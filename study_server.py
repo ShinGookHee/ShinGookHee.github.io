@@ -29,23 +29,28 @@ def utc():
     return datetime.now(timezone.utc).isoformat()
 
 
-def save(session):
+def write_json_file(path, value):
     tmp = None
     try:
-        DATA.mkdir(mode=0o700, parents=True, exist_ok=True)
+        path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
         with tempfile.NamedTemporaryFile(mode="w", encoding="utf-8", suffix=".tmp",
-                                         dir=DATA, delete=False) as stream:
+                                         dir=path.parent, delete=False) as stream:
             tmp = Path(stream.name)
-            json.dump(session, stream, ensure_ascii=False, allow_nan=False)
+            json.dump(value, stream, ensure_ascii=False, allow_nan=False)
             stream.flush()
             os.fsync(stream.fileno())
-        os.replace(tmp, DATA / (session["id"] + ".json"))
-    except (OSError, ValueError):
-        SESSIONS.pop(session["id"], None)
-        raise
+        os.replace(tmp, path)
     finally:
         if tmp:
             tmp.unlink(missing_ok=True)
+
+
+def save(session):
+    try:
+        write_json_file(DATA / (session["id"] + ".json"), session)
+    except (OSError, ValueError):
+        SESSIONS.pop(session["id"], None)
+        raise
 
 
 def load(identifier):

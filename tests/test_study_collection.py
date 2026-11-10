@@ -177,6 +177,42 @@ class CollectionTests(unittest.TestCase):
         self.assertEqual(self.participant.post(path + "/action", headers=headers,
                          json={**start, "consent_confirmed": True}).status_code, 200)
 
+    def test_public_demo_json_import_is_admin_only_and_separate(self):
+        route = "/api/collection/admin/demo-results"
+        identifier = "a" * 32
+        result = {"version": "ie416-public-demo-v1", "mode": "public-demo",
+                  "condition": "node", "language": "ko",
+                  "summary": {"condition": "node", "completed_main": 6, "sa_primary": 0.5,
+                              "balanced_accuracy": 0.5, "final_accuracy": 2 / 3, "raw_tlx": 425 / 6},
+                  "trials": [{"trial_id": f"T{i:02d}"} for i in range(1, 7)],
+                  "survey": {"tlx": dict.fromkeys(("mental", "physical", "temporal", "performance",
+                                                  "effort", "frustration"), 50), "notes": ""}}
+        payload = {"import_id": identifier, "result": result}
+        self.assertEqual(self.participant.post(route, json=payload).status_code, 401)
+        viewer = self.app.test_client()
+        self.assertEqual(viewer.post("/api/collection/results/login", json={
+            "username": "viewer", "password": "2222"
+        }).status_code, 200)
+        self.assertEqual(viewer.get(route).status_code, 401)
+        self.assertEqual(self.login(self.admin).status_code, 200)
+        self.assertEqual(self.admin.post(route, json={**payload, "result": {"config": {"mode": "pilot"}}}).status_code, 400)
+        self.assertEqual(self.admin.post(route, json=payload).status_code, 201)
+        self.assertEqual(self.admin.post(route, json=payload).status_code, 200)
+        self.assertEqual(self.admin.post(route, json={**payload, "result": {**result, "language": "en"}}).status_code, 409)
+        self.assertEqual(self.admin.get("/api/collection/admin/sessions").json["sessions"], [])
+        self.assertEqual(viewer.get("/api/collection/results/summary").json["groups"], [])
+        self.assertTrue((self.data / "demo-imports" / f"{identifier}.json").is_file())
+
+        reopened = self.create_app(data_dir=self.data).test_client()
+        self.assertEqual(self.login(reopened).status_code, 200)
+        rows = reopened.get(route).json["results"]
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0]["sa_primary"], 0.5)
+        exported = reopened.get(f"{route}/{identifier}/json")
+        self.assertEqual(json.loads(exported.data), result)
+        with ZipFile(io.BytesIO(reopened.get("/api/collection/admin/backup.zip").data)) as archive:
+            self.assertEqual(archive.namelist(), [])
+
     def test_public_configuration(self):
         url = "https://study.example"
         with self.assertRaises(ValueError):
