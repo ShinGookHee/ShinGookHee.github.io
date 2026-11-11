@@ -44,18 +44,18 @@ async function refresh() {
   table.replaceChildren();
   if (!groups.length) {
     const cell = table.insertRow().insertCell();
-    cell.colSpan = 7;
+    cell.colSpan = 8;
     cell.textContent = '아직 접수된 참가 세션이 없습니다.';
     return;
   }
   for (const group of groups) {
-    const {mode, version, condition, completed, total, metrics} = group;
+    const {mode, version, survey_version, condition, completed, total, metrics} = group;
     const row = table.insertRow();
     const values = [
-      `${mode === 'pilot' ? '파일럿' : '본 실험'} · ${version}`,
+      `${mode === 'pilot' ? '파일럿' : '본 실험'} · ${version} · ${survey_version === 'raw-tlx-v1' ? 'Raw 설문' : '가중 설문'}`,
       condition === 'table' ? '표' : '노드링크',
       `${completed} / ${total}`, metric(metrics.sa_primary), metric(metrics.balanced_accuracy),
-      metric(metrics.final_accuracy), metric(metrics.raw_tlx, false)
+      metric(metrics.final_accuracy), metric(metrics.weighted_tlx, false), metric(metrics.raw_tlx, false)
     ];
     for (const value of values) row.insertCell().textContent = value;
   }

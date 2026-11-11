@@ -139,7 +139,9 @@ class CollectionTests(unittest.TestCase):
             action("next")
             if current["phase"] == "break":
                 action("continue")
-        action("survey", tlx=dict.fromkeys(("mental", "physical", "temporal", "performance", "effort", "frustration"), 50),
+        action("survey", tlx=dict.fromkeys(study.TLX_ITEMS, 50),
+               pairwise=[pair[0] for pair in study.TLX_PAIRS],
+               interview={"q1": "마감을 먼저 확인했습니다.", "qp1": "후반부가 어려웠습니다."},
                notes="UNSOLICITED-NAME")
         self.assertEqual(current["phase"], "finished")
         self.assertNotIn("summary", current)
@@ -156,12 +158,15 @@ class CollectionTests(unittest.TestCase):
             self.assertEqual(team["groups"][0]["completed"], 1)
             self.assertEqual(team["groups"][0]["metrics"]["sa_primary"], {"mean": 1, "n": 1})
             self.assertEqual(team["groups"][0]["metrics"]["raw_tlx"], {"mean": 50, "n": 1})
+            self.assertEqual(team["groups"][0]["metrics"]["weighted_tlx"], {"mean": 50, "n": 1})
             backup = client.get("/api/collection/admin/backup.zip")
             with ZipFile(io.BytesIO(backup.data)) as archive:
                 record = json.loads(archive.read(identifier + "/session.json"))
                 self.assertEqual(len(record["records"]), 40)
                 self.assertEqual(record["survey"]["raw_tlx"], 50)
-                self.assertEqual(record["survey"]["notes"], "")
+                self.assertNotIn("notes", record["survey"])
+                self.assertEqual(record["survey"]["interview"]["qp1"], "후반부가 어려웠습니다.")
+                self.assertIn(b"interview_qp1", archive.read(identifier + "/survey.csv"))
                 self.assertTrue(record["collection"]["acknowledged_utc"])
                 self.assertNotIn("enrollment_hash", record["collection"])
                 self.assertNotIn("token", record)

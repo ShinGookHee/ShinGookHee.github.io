@@ -9,6 +9,7 @@ import os
 import random
 
 VERSION = "ie416-2026-11-03-v2"
+POST_TASK_SURVEY = "weighted-tlx-interview-v1"
 ROBOTS = ("A", "B", "C")
 ORDERS = list(permutations(ROBOTS))
 DEFAULT_SA_BANK = Path(__file__).resolve().parent / "protocol" / "sa_bank_v2.json"
@@ -343,5 +344,7 @@ def aggregate(session):
             "timeouts": sum(r.get("timeout", False) for r in records),
             "interrupted_trials": sum(r.get("interrupted", False) for r in records),
             "raw_tlx": session.get("survey", {}).get("raw_tlx"),
+            "weighted_tlx": session.get("survey", {}).get("weighted_tlx"),
+            "survey_version": session.get("survey_version", "raw-tlx-v1"),
             "bank_sha256": session["bank_sha256"], "protocol_version": session.get('version', VERSION),
             "sa_bank_version": session.get('sa_bank_version'), "sa_bank_sha256": session.get('sa_bank_sha256')}

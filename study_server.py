@@ -7,6 +7,7 @@ import argparse
 import csv
 import hmac
 import io
+from itertools import combinations
 import json
 import math
 import os
@@ -17,12 +18,17 @@ import tempfile
 import threading
 import time
 import uuid
-from study_protocol import VERSION, build_deck, bank_hash, public_stimulus, protocol_spec, aggregate, outcomes, warehouse_map, sa_bank_metadata, translate_demo
+from study_protocol import (
+    VERSION, POST_TASK_SURVEY, aggregate, bank_hash, build_deck, outcomes,
+    protocol_spec, public_stimulus, sa_bank_metadata, translate_demo, warehouse_map,
+)
 
 ROOT = Path(__file__).resolve().parent
 DATA = ROOT / "study-data"
 LOCK = threading.RLock()
 SESSIONS = {}
+TLX_ITEMS = ("mental", "physical", "temporal", "performance", "effort", "frustration")
+TLX_PAIRS = tuple(combinations(TLX_ITEMS, 2))
 
 
 def utc():
@@ -107,6 +113,7 @@ def create_session(body, *, collection=False, enrollment_hash=None):
             try:
                 prior = json.loads(path.read_text(encoding="utf-8"))
                 if (prior["config"]["mode"] == config["mode"] and prior.get('version') == VERSION
+                        and prior.get("survey_version") == POST_TASK_SURVEY
                         and prior["config"].get("language", "ko") == config["language"]):
                     counts[prior["config"]["condition"]] += 1
             except (ValueError, KeyError):
@@ -121,7 +128,7 @@ def create_session(body, *, collection=False, enrollment_hash=None):
                **sa_bank_metadata(),
                "map_sha256": warehouse_map()["sha256"], "map_source": "synthetic-ie416",
                "screen": "instructions", "index": 0, "active": None, "records": [], "events": [],
-               "survey": {}, "requests": {}}
+               "survey": {}, "survey_version": POST_TASK_SURVEY, "requests": {}}
     if collection:
         session["collection"] = {"acknowledged_utc": utc() if enrollment_hash else None}
         if enrollment_hash:
@@ -237,6 +244,7 @@ def view(session):
             "server_epoch_ms": now * 1000, "protocol_version": session.get('version', VERSION),
             "legacy_protocol": session.get('version') != VERSION,
             "sa_bank_version": session.get('sa_bank_version'),
+            "survey_version": session.get("survey_version"),
             "completed_main": sum(not r["practice"] for r in session["records"]),
             "total_main": 6 if session["config"]["mode"] == "demo" else 36,
             "completed_practice": sum(r["practice"] for r in session["records"]),
@@ -275,6 +283,38 @@ def view(session):
                                      "suitable": s["valid"], "feasible_orders": s["feasible_orders"],
                                      "rows": outcomes(s["recommendation"], s["current"]["durations"], s["current"]["deadlines"])}
     return base
+
+
+def score_survey(body, mode, version):
+    ratings = body.get("tlx")
+    if not isinstance(ratings, dict) or set(ratings) != set(TLX_ITEMS):
+        raise ValueError("작업부하 6항목에 모두 응답해 주세요.")
+    if any(type(value) not in (int, float) or not math.isfinite(value) or not 0 <= value <= 100
+           for value in ratings.values()):
+        raise ValueError("작업부하 평정은 0~100점이어야 합니다.")
+    raw = sum(ratings.values()) / len(TLX_ITEMS)
+    if version != POST_TASK_SURVEY:
+        return {"tlx": ratings, "raw_tlx": raw,
+                "scoring": "unweighted Raw TLX; performance 0=perfect,100=failure",
+                "notes": str(body.get("notes", ""))[:2000]}
+
+    choices = body.get("pairwise")
+    if (not isinstance(choices, list) or len(choices) != len(TLX_PAIRS)
+            or any(choice not in pair for choice, pair in zip(choices, TLX_PAIRS))):
+        raise ValueError("15개 비교 쌍에서 항목을 하나씩 선택해 주세요.")
+    weights = {item: choices.count(item) for item in TLX_ITEMS}
+    interview = body.get("interview", {})
+    allowed = {f"q{i}" for i in range(1, 9)} | {"additional"}
+    if mode == "pilot":
+        allowed.update(("qp1", "qp2"))
+    if (not isinstance(interview, dict) or not interview.keys() <= allowed
+            or any(not isinstance(value, str) or len(value) > 2000 for value in interview.values())):
+        raise ValueError("주관적 경험 응답을 확인해 주세요. 문항당 2,000자까지 입력할 수 있습니다.")
+    return {"version": POST_TASK_SURVEY, "tlx": ratings, "pairwise": choices,
+            "tlx_weights": weights, "raw_tlx": raw,
+            "weighted_tlx": sum(ratings[item] * weights[item] for item in TLX_ITEMS) / len(TLX_PAIRS),
+            "scoring": "weighted NASA-TLX; performance 0=good,100=poor",
+            "interview": {key: value.strip() for key, value in interview.items() if value.strip()}}
 
 
 def act(session, body):
@@ -331,15 +371,7 @@ def act(session, body):
         else:
             begin_trial(session)
     elif action == "survey" and current_phase == "survey":
-        values = body.get("tlx")
-        names = ["mental", "physical", "temporal", "performance", "effort", "frustration"]
-        if not isinstance(values, dict) or set(values) != set(names):
-            raise ValueError("Complete all six workload items")
-        if any(isinstance(v, bool) or not isinstance(v, (int, float)) or not math.isfinite(v) or not 0 <= v <= 100 for v in values.values()):
-            raise ValueError("Workload ratings must be between 0 and 100")
-        session["survey"] = {"tlx": values, "raw_tlx": sum(values.values()) / 6,
-                             "scoring": "unweighted Raw TLX; performance 0=perfect,100=failure",
-                             "notes": str(body.get("notes", ""))[:2000]}
+        session["survey"] = score_survey(body, session["config"]["mode"], session.get("survey_version"))
         session["screen"] = "finished"
         session["finished_utc"] = utc()
         log(session, "session_finished")
@@ -373,6 +405,22 @@ def csv_payload(session, kind):
                              "practice": r["practice"], **a})
     elif kind == "events":
         rows = [{**e, "details": json.dumps(e["details"], ensure_ascii=False)} for e in session["events"]]
+    elif kind == "survey":
+        survey = session.get("survey")
+        if survey:
+            interview = survey.get("interview", {})
+            choices = survey.get("pairwise", [])
+            rows = [{"session_id": session["id"], "mode": session["config"]["mode"],
+                     "condition": session["config"]["condition"],
+                     "survey_version": survey.get("version", "raw-tlx-v1"),
+                     "weighted_tlx": survey.get("weighted_tlx"), "raw_tlx": survey["raw_tlx"],
+                     **{f"rating_{key}": survey["tlx"].get(key) for key in TLX_ITEMS},
+                     **{f"weight_{key}": survey.get("tlx_weights", {}).get(key) for key in TLX_ITEMS},
+                     **{f"pair_{i}_{a}_{b}": choices[i - 1] if i <= len(choices) else None
+                        for i, (a, b) in enumerate(TLX_PAIRS, 1)},
+                     **{f"interview_{key}": interview.get(key) for key in (
+                         *(f"q{i}" for i in range(1, 9)), "qp1", "qp2", "additional")},
+                     "legacy_notes": survey.get("notes")}]
     else:
         raise ValueError("Unknown export")
     stream = io.StringIO()
@@ -444,7 +492,7 @@ class Handler(SimpleHTTPRequestHandler):
                 return self.send_json(protocol_spec())
             if route == "/api/study/map":
                 return self.send_json(warehouse_map())
-            match = re.fullmatch(r"/api/study/sessions/([a-f0-9]{16})(?:/(summary|trials|answers|events|json))?", route)
+            match = re.fullmatch(r"/api/study/sessions/([a-f0-9]{16})(?:/(summary|trials|answers|events|survey|json))?", route)
             if match:
                 with LOCK:
                     session = self.authorized(match[1])

@@ -27,3 +27,13 @@
 .collection-table td a{white-space:nowrap}
 #invite-result{margin-top:16px}
 #copy{justify-self:start}
+.survey form>h2,.survey form>p{margin-top:12px}
+.survey-pair{display:flex;flex-wrap:wrap;gap:12px 24px;margin:14px 0 0;padding:10px 14px;border:1px solid var(--border);border-radius:6px}
+.survey-pair legend,.survey-rating>label{font-weight:600}
+.survey-pair label{cursor:pointer}
+.survey-rating p{margin:8px 0}
+.survey-rating input[type=number]{width:7em;margin:8px 0 0;padding:8px}
+.interview-section{margin-top:25px;padding-top:18px;border-top:1px solid var(--border)}
+.survey .interview-item{margin-top:18px}
+.interview-item .details{margin:0}
+.survey-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:20px}

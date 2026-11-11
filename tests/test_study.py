@@ -144,17 +144,37 @@ class SessionTests(unittest.TestCase):
             if not public['practice']:self.assertNotIn('practice_feedback',public)
             public=self.action('next')
         self.assertEqual(self.s['screen'],'survey')
-        public=self.action('survey',tlx={k:50 for k in ['mental','physical','temporal','performance','effort','frustration']})
+        ratings = dict(zip(server.TLX_ITEMS, (100, 80, 60, 40, 20, 0)))
+        public=self.action('survey',tlx=ratings,pairwise=[pair[0] for pair in server.TLX_PAIRS],
+                           interview={"q1":"마감시간을 먼저 봤습니다."})
         self.assertEqual(public['phase'],'finished')
         self.assertEqual(public['summary']['sa_primary'],1)
         self.assertEqual(public['summary']['balanced_accuracy'],1)
         self.assertEqual(public['summary']['raw_tlx'],50)
+        self.assertAlmostEqual(public['summary']['weighted_tlx'],1100/15)
+        self.assertEqual(list(self.s['survey']['tlx_weights'].values()),[5,4,3,2,1,0])
+        self.assertIn(b'pair_15_effort_frustration',server.csv_payload(self.s,'survey'))
         saved=json.loads((server.DATA/(self.s['id']+'.json')).read_text())
         self.assertEqual(saved['records'],self.s['records'])
         self.assertIn(b'balanced_accuracy',server.csv_payload(self.s,'summary'))
         self.assertIn(b'scenario_id',server.csv_payload(self.s,'answers'))
         self.assertIn(b'sa_bank_id',server.csv_payload(self.s,'answers'))
         self.assertIn(b'sa-fixed-ko-v2',server.csv_payload(self.s,'summary'))
+
+    def test_survey_requires_valid_pairs_and_restricts_pilot_questions(self):
+        self.s["screen"] = "survey"
+        ratings = dict.fromkeys(server.TLX_ITEMS, 50)
+        choices = [pair[0] for pair in server.TLX_PAIRS]
+        for pairs in (choices[:-1], ["frustration", *choices[1:]]):
+            with self.assertRaises(ValueError):
+                self.action("survey", tlx=ratings, pairwise=pairs)
+        with self.assertRaises(ValueError):
+            self.action("survey", tlx=ratings, pairwise=choices, interview={"qp1": "파일럿만"})
+        self.assertEqual(self.s["screen"], "survey")
+        self.s.pop("survey_version")
+        response = self.action("survey", tlx=ratings)
+        self.assertEqual(response["summary"]["survey_version"], "raw-tlx-v1")
+        self.assertIsNone(response["summary"]["weighted_tlx"])
 
     def test_old_session_preserves_version_and_new_assignment_is_separate(self):
         self.s['version']='ie416-2026-11-03-v1'

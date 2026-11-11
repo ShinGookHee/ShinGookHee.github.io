@@ -41,7 +41,7 @@ async function refresh() {
   $('session-count').textContent = `전체 ${sessions.length}세션 · 완료 ${complete}세션`;
   const hasLegacyLinks = sessions.some(s => s.legacy_invite);
   $('legacy-links').hidden = !hasLegacyLinks;
-  const exports = {summary:'요약',trials:'시행',answers:'문항',events:'이벤트',json:'JSON'};
+  const exports = {summary:'요약',trials:'시행',answers:'문항',events:'이벤트',survey:'설문',json:'JSON'};
   const status = {invited:'기존 초대',ready:'참가 접수',active:'진행 중',finished:'완료'};
   $('rows').innerHTML = sessions.map(s => {
     const path = root + '/sessions/' + encodeURIComponent(s.id);
@@ -56,9 +56,9 @@ async function refresh() {
     <td>${esc(new Date(row.imported_utc).toLocaleString('ko-KR'))}</td>
     <td>${row.condition === 'node' ? '노드링크' : '표'} · ${row.language === 'ko' ? '한국어' : '영어'}</td>
     <td>${row.completed_main}/6</td><td>${percent(row.sa_primary)}</td><td>${percent(row.balanced_accuracy)}</td>
-    <td>${percent(row.final_accuracy)}</td><td>${row.raw_tlx.toFixed(1)}</td>
+    <td>${percent(row.final_accuracy)}</td><td>${row.weighted_tlx?.toFixed(1) ?? '—'}</td><td>${row.raw_tlx.toFixed(1)}</td>
     <td><a href="${root}/demo-results/${encodeURIComponent(row.id)}/json">JSON</a></td></tr>`
-  ).join('') || '<tr><td colspan="8">가져온 데모 결과가 없습니다.</td></tr>';
+  ).join('') || '<tr><td colspan="9">가져온 데모 결과가 없습니다.</td></tr>';
 }
 
 function showInvite(invite, label) {

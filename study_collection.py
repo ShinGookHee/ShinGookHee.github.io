@@ -20,15 +20,15 @@ from flask import Flask, abort, jsonify, request, send_file, send_from_directory
 from waitress import serve
 
 import study_server as study
-from study_protocol import load_sa_bank
+from study_protocol import POST_TASK_SURVEY, load_sa_bank
 
 WEB = study.ROOT / "web" / "study"
-EXPORTS = ("summary", "trials", "answers", "events", "json")
+EXPORTS = ("summary", "trials", "answers", "events", "survey", "json")
 SESSION_ID = re.compile(r"[a-f0-9]{16}")
 NONCE = re.compile(r"[a-f0-9]{32}")
 STUDY_MODES = ("pilot", "main")
 LOCAL_DATA = study.ROOT / "study-data" / "collection"
-TEAM_METRICS = ("sa_primary", "balanced_accuracy", "final_accuracy", "raw_tlx")
+TEAM_METRICS = ("sa_primary", "balanced_accuracy", "final_accuracy", "raw_tlx", "weighted_tlx")
 PUBLIC_DEMO_VERSION = "ie416-public-demo-v1"
 
 
@@ -71,16 +71,17 @@ def team_results():
     groups = defaultdict(list)
     for record in stored_sessions():
         config = record["config"]
-        groups[config["mode"], record.get("version", "unknown"), config["condition"]].append(record)
+        groups[config["mode"], record.get("version", "unknown"),
+               record.get("survey_version", "raw-tlx-v1"), config["condition"]].append(record)
 
     rows = []
-    for (mode, version, condition), records in sorted(groups.items()):
+    for (mode, version, survey_version, condition), records in sorted(groups.items()):
         completed = [study.aggregate(record) for record in records if record["screen"] == "finished"]
         metrics = {}
         for metric in TEAM_METRICS:
             values = [summary[metric] for summary in completed if summary[metric] is not None]
             metrics[metric] = {"mean": mean(values) if values else None, "n": len(values)}
-        rows.append({"mode": mode, "version": version, "condition": condition,
+        rows.append({"mode": mode, "version": version, "survey_version": survey_version, "condition": condition,
                      "total": len(records), "completed": len(completed), "metrics": metrics})
     return rows
 
@@ -90,7 +91,7 @@ def demo_result_row(identifier, record):
     summary = result["summary"]
     return {"id": identifier, "imported_utc": record["imported_utc"],
             "condition": result["condition"], "language": result["language"],
-            **{key: summary[key] for key in ("completed_main", *TEAM_METRICS)}}
+            **{key: summary.get(key) for key in ("completed_main", *TEAM_METRICS)}}
 
 
 def create_app(*, data_dir=None, public_url=None, password=None, viewer_password=None):
@@ -332,8 +333,10 @@ def create_app(*, data_dir=None, public_url=None, password=None, viewer_password
             value = summary.get(metric)
             if metric == "balanced_accuracy" and metric in summary and value is None:
                 continue
+            if metric == "weighted_tlx" and survey.get("version") != POST_TASK_SURVEY and value is None:
+                continue
             if (type(value) not in (int, float) or not math.isfinite(value)
-                    or not 0 <= value <= (100 if metric == "raw_tlx" else 1)):
+                    or not 0 <= value <= (100 if metric in ("raw_tlx", "weighted_tlx") else 1)):
                 abort(400, "데모 결과의 요약 점수를 확인할 수 없습니다.")
         path = demo_dir / (identifier + ".json")
         with study.LOCK:
