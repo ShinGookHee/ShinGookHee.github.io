@@ -8,7 +8,7 @@ import json
 import os
 import random
 
-VERSION = "ie416-2026-11-11-v3"
+VERSION = "ie416-2026-11-11-v4"
 POST_TASK_SURVEY = "weighted-tlx-interview-v1"
 ROBOTS = ("A", "B", "C")
 ORDERS = list(permutations(ROBOTS))

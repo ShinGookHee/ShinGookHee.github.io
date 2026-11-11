@@ -29,7 +29,7 @@ NONCE = re.compile(r"[a-f0-9]{32}")
 STUDY_MODES = ("pilot", "main")
 LOCAL_DATA = study.ROOT / "study-data" / "collection"
 TEAM_METRICS = ("sa_primary", "balanced_accuracy", "final_accuracy", "raw_tlx", "weighted_tlx")
-PUBLIC_DEMO_VERSION = "ie416-public-demo-v1"
+PUBLIC_DEMO_VERSIONS = ("ie416-public-demo-v1", "ie416-public-demo-v2")
 
 
 def participant_view(current):
@@ -318,7 +318,7 @@ def create_app(*, data_dir=None, public_url=None, password=None, viewer_password
         if not isinstance(identifier, str) or not NONCE.fullmatch(identifier):
             abort(400, "가져오기 요청 ID가 올바르지 않습니다.")
         if (not isinstance(result, dict) or result.get("mode") != "public-demo"
-                or result.get("version") != PUBLIC_DEMO_VERSION
+                or result.get("version") not in PUBLIC_DEMO_VERSIONS
                 or result.get("condition") not in ("table", "node")
                 or result.get("language") not in ("ko", "en")):
             abort(400, "공개 데모에서 다운로드한 결과 JSON을 선택하세요.")
