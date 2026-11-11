@@ -50,6 +50,7 @@ class CollectionTests(unittest.TestCase):
         self.assertEqual(self.participant.get("/api/collection/results/summary").status_code, 401)
         self.assertEqual(self.participant.post("/api/study/sessions", json={}).status_code, 404)
         self.assertEqual(self.participant.get("/protocol/sa_bank_v2.json").status_code, 404)
+        self.assertEqual(self.participant.get("/protocol/sa_bank_alt_v2.json").status_code, 404)
         self.assertEqual(self.admin.post("/api/collection/admin/login", json={
             "username": "admin", "password": "1111"
         }, headers={"Origin": "https://other.example"}).status_code, 403)
@@ -64,6 +65,8 @@ class CollectionTests(unittest.TestCase):
         second = self.enroll(link, "2" * 32).json
         self.assertNotEqual(first["view"]["id"], second["view"]["id"])
         self.assertNotEqual(first["view"]["config"]["condition"], second["view"]["config"]["condition"])
+        forms = {entry["view"]["config"]["condition"]: entry["view"]["sa_bank_version"] for entry in (first, second)}
+        self.assertEqual(forms, {"table": "sa-alternate-ko-v2", "node": "sa-fixed-ko-v2"})
         repeated = self.enroll(link, "1" * 32)
         self.assertEqual(repeated.status_code, 200)
         self.assertEqual(repeated.json["view"]["id"], first["view"]["id"])

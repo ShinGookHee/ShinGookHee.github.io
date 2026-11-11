@@ -8,27 +8,39 @@ import json
 import os
 import random
 
-VERSION = "ie416-2026-11-03-v2"
+VERSION = "ie416-2026-11-11-v3"
 POST_TASK_SURVEY = "weighted-tlx-interview-v1"
 ROBOTS = ("A", "B", "C")
 ORDERS = list(permutations(ROBOTS))
 DEFAULT_SA_BANK = Path(__file__).resolve().parent / "protocol" / "sa_bank_v2.json"
 SA_BANK = Path(os.environ.get("IE416_SA_BANK_PATH") or DEFAULT_SA_BANK).expanduser()
+DEFAULT_SA_ALT_BANK = DEFAULT_SA_BANK.with_name("sa_bank_alt_v2.json")
+SA_ALT_BANK = Path(os.environ.get("IE416_SA_ALT_BANK_PATH") or DEFAULT_SA_ALT_BANK).expanduser()
 
 
-def load_sa_bank():
-    """Authoritative fixed items shared with the revised Korean document."""
-    bank = json.loads(SA_BANK.read_text(encoding='utf-8'))
-    if bank['version'] != 'sa-fixed-ko-v2' or len(bank['cases']) != 12:
+def sa_bank_file(condition):
+    if condition == "node":
+        return SA_BANK, "sa-fixed-ko-v2"
+    if condition == "table":
+        return SA_ALT_BANK, "sa-alternate-ko-v2"
+    raise ValueError("SA 문항을 선택할 UI 조건이 필요합니다.")
+
+
+def load_sa_bank(condition="node"):
+    """Load the fixed, private SA form assigned to this UI."""
+    path, version = sa_bank_file(condition)
+    bank = json.loads(path.read_text(encoding='utf-8'))
+    if bank['version'] != version or len(bank['cases']) != 12:
         raise ValueError('Unexpected fixed SA bank version or size')
     if {s['bank_id'] for s in bank['cases']} != {f'S{i:02d}' for i in range(1, 13)}:
         raise ValueError('SA bank IDs must be S01 through S12')
     return bank
 
 
-def sa_bank_metadata():
-    return {'sa_bank_version': load_sa_bank()['version'],
-            'sa_bank_sha256': hashlib.sha256(SA_BANK.read_bytes()).hexdigest()}
+def sa_bank_metadata(condition="node"):
+    path, version = sa_bank_file(condition)
+    return {'sa_bank_version': version,
+            'sa_bank_sha256': hashlib.sha256(path.read_bytes()).hexdigest()}
 
 
 def warehouse_map():
@@ -212,9 +224,9 @@ def make_scenario(rng, kind, index, purpose, subtype=None, practice=False):
     raise RuntimeError("Could not generate a validated scenario")
 
 
-def build_deck(seed, demo=False):
+def build_deck(seed, demo=False, *, condition="node"):
     rng = random.Random(seed)
-    bank = {s['bank_id']: deepcopy(s) for s in load_sa_bank()['cases']}
+    bank = {s['bank_id']: deepcopy(s) for s in load_sa_bank(condition)['cases']}
     if demo:
         practice = []
         main = []
@@ -263,11 +275,22 @@ def translate_demo(deck):
                 preceding = " and ".join(order[:order.index(target)])
                 for option in question["options"]:
                     finish, deadline = option["finish"], option["deadline"]
-                    status = "meets" if finish <= deadline else "misses"
-                    option["text"] = (
-                        f"After handling {preceding}, {target} finishes at {finish} min "
-                        f"and {status} its {deadline} min deadline."
-                    )
+                    if "robot" in option:
+                        status = "meets" if option["meets"] else "misses"
+                        option["text"] = (
+                            f"Robot {option['robot']} finishes at {finish} min "
+                            f"and {status} its {deadline} min deadline."
+                        )
+                    else:
+                        status = "meets" if finish <= deadline else "misses"
+                        option["text"] = (
+                            f"After handling {preceding}, {target} finishes at {finish} min "
+                            f"and {status} its {deadline} min deadline."
+                        )
+            elif question.get("response_type") == "robot":
+                question["prompt"] = f"Which robot misses its deadline in the recommended order {' → '.join(order)}?"
+                for option in question["options"]:
+                    option["text"] = "None" if option["id"] == "none" else option["id"]
             else:
                 target = question["target"]
                 alternative = question["alternate_order"]
@@ -303,13 +326,14 @@ def public_stimulus(scenario, updated):
 def protocol_spec():
     return {"version": VERSION, "main_trials": 36, "practice_trials": 4,
             **sa_bank_metadata(),
+            "sa_bank_versions": {condition: sa_bank_file(condition)[1] for condition in ("table", "node")},
             "allocation": {"sa": {"invalid": 6, "valid_change": 4, "no_change": 2},
                            "behavior": {"invalid": 12, "valid_change": 8, "no_change": 4}},
             "outcomes": {"recall": 6, "projection": 6},
             "recommendation": "사전 검증한 결정론적 스케줄러의 모의 AI 추천",
             "clock": "변화 시점부터 모의 분 단위의 새 검토 스냅샷. 실제 응답 초와 구분.",
             "feasibility": "한 사람이 동시에 가용한 요청 3개를 순차 처리. 완료 <= 마감. 가능한 모든 순서 정답.",
-            "sa": "고정 문항 S01~S12. 화면 차폐 후 지각·이해·결과 각 1문항, 4지선다. 결과는 완료 시각 회상 6 + 대안 예측 6. SA 자극은 마감 변경만 사용.",
+            "sa": "표 조건은 SA 2, 노드링크는 기존 문항. 각 12시행에 지각·이해·결과 4지선다를 제시한다. 결과는 회상 6 + 대안 예측 6.",
             "timing": "두 UI 및 두 평가 목적 모두 공통 고정 검토시간 후 응답. 판단 RT는 이 고정시간을 포함하며 이후 시간도 별도 기록.",
             "gaze": "시선 장비 직접 연결 없음. 동기화 보조용 화면 전환/AOI 좌표 이벤트만 기록.",
             "limits": "파일럿용 구현. SA 문항은 검증된 척도가 아니며 난이도와 문항 타당도를 확인해야 함."}

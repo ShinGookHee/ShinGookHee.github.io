@@ -19,7 +19,7 @@ import threading
 import time
 import uuid
 from study_protocol import (
-    VERSION, POST_TASK_SURVEY, aggregate, bank_hash, build_deck, outcomes,
+    VERSION, POST_TASK_SURVEY, aggregate, bank_hash, build_deck, load_sa_bank, outcomes,
     protocol_spec, public_stimulus, sa_bank_metadata, translate_demo, warehouse_map,
 )
 
@@ -120,12 +120,12 @@ def create_session(body, *, collection=False, enrollment_hash=None):
                 continue
         candidates = [k for k, v in counts.items() if v == min(counts.values())]
         config["condition"] = secrets.choice(candidates)
-    deck = build_deck(config["seed"], config["mode"] == "demo")
+    deck = build_deck(config["seed"], config["mode"] == "demo", condition=config["condition"])
     if config["language"] == "en":
         translate_demo(deck)
     session = {"id": uuid.uuid4().hex[:16], "token": secrets.token_urlsafe(24), "version": VERSION,
                "created_utc": utc(), "config": config, "deck": deck, "bank_sha256": bank_hash(deck),
-               **sa_bank_metadata(),
+               **sa_bank_metadata(config["condition"]),
                "map_sha256": warehouse_map()["sha256"], "map_source": "synthetic-ie416",
                "screen": "instructions", "index": 0, "active": None, "records": [], "events": [],
                "survey": {}, "survey_version": POST_TASK_SURVEY, "requests": {}}
@@ -543,6 +543,11 @@ def main():
     parser = argparse.ArgumentParser(description="IE416 local supervisory UI experiment")
     parser.add_argument("--port", type=int, default=8766)
     args = parser.parse_args()
+    try:
+        for condition in ("node", "table"):
+            load_sa_bank(condition)
+    except (OSError, ValueError) as error:
+        parser.error(str(error))
     service = ThreadingHTTPServer(("127.0.0.1", args.port), Handler)
     print(f"IE416 Supervision Lab — http://127.0.0.1:{args.port}/", flush=True)
     try:

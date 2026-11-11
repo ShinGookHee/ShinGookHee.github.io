@@ -9,6 +9,22 @@ import study_server as server
 
 
 class StimuliTests(unittest.TestCase):
+    def test_table_uses_sa2_with_matching_trial_types(self):
+        node = protocol.build_deck(416, condition="node")
+        table = protocol.build_deck(416, condition="table")
+        self.assertEqual([(trial["purpose"], trial["kind"], trial["subtype"]) for trial in table],
+                         [(trial["purpose"], trial["kind"], trial["subtype"]) for trial in node])
+        self.assertEqual([trial for trial in table if trial["purpose"] == "behavior"],
+                         [trial for trial in node if trial["purpose"] == "behavior"])
+        alternate = {trial["bank_id"]: trial for trial in protocol.load_sa_bank("table")["cases"]}
+        table_sa = [trial for trial in table if trial["purpose"] == "sa"]
+        self.assertEqual(len(table_sa), 12)
+        self.assertEqual(sum(len(trial["questions"]) for trial in table_sa), 36)
+        self.assertTrue(all({key: value for key, value in trial.items() if key != "id"} == alternate[trial["bank_id"]]
+                            for trial in table_sa))
+        self.assertNotEqual(protocol.sa_bank_metadata("table")["sa_bank_sha256"],
+                            protocol.sa_bank_metadata("node")["sa_bank_sha256"])
+
     def test_fixed_sa_bank_does_not_change_with_seed(self):
         source = {s['bank_id']:s for s in protocol.load_sa_bank()['cases']}
         positions = []
@@ -226,6 +242,7 @@ class SessionTests(unittest.TestCase):
 
     def test_full_36_trials_practice_and_breaks(self):
         self.s=server.create_session({'participant':'FULL_TEST','mode':'pilot','condition':'table'})
+        self.assertEqual(self.s["sa_bank_version"], "sa-alternate-ko-v2")
         self.action('start');breaks=[]
         while self.s['screen'] not in ('survey','finished'):
             if self.s['screen']=='break':

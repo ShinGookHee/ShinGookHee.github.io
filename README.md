@@ -11,7 +11,7 @@
 
 ## 시작
 
-Python 3.9 이상에서 다음 명령을 실행한다. 비공개 SA 문항집을 먼저 서버에 전달하고 `IE416_SA_BANK_PATH`에 그 파일의 절대 경로를 설정한다.
+Python 3.9 이상에서 다음 명령을 실행한다. 비공개 SA 문항 파일 두 개를 서버에 전달한다. 노드링크는 `IE416_SA_BANK_PATH`, 표는 `IE416_SA_ALT_BANK_PATH`에 해당 파일의 절대 경로를 설정한다.
 
 ```sh
 python3 -m venv .venv
@@ -29,7 +29,8 @@ GitHub Pages는 공개 체험 데모를 제공한다. 이 브랜치의 Python �
 | --- | --- |
 | `IE416_PUBLIC_URL` | 참가 링크에 사용할 HTTPS 오리진 |
 | `IE416_DATA_DIR` | 응답을 보관할 지속 저장 볼륨 내 절대 경로 |
-| `IE416_SA_BANK_PATH` | 비공개 `sa_bank_v2.json`의 절대 경로 |
+| `IE416_SA_BANK_PATH` | 노드링크용 비공개 `sa_bank_v2.json`의 절대 경로 |
+| `IE416_SA_ALT_BANK_PATH` | 표 조건용 비공개 SA 2 `sa_bank_alt_v2.json`의 절대 경로 |
 | `IE416_ADMIN_PASSWORD` | 관리자 비밀번호, 16자 이상 |
 | `IE416_VIEWER_PASSWORD` | 팀원용 비밀번호, 관리자와 다른 16자 이상 값 |
 

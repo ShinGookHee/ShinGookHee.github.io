@@ -3,3 +3,4 @@ __pycache__/
 .env*
 study-data/
 protocol/sa_bank_v2.json
+protocol/sa_bank_alt_v2.json

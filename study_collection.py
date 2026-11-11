@@ -424,12 +424,13 @@ def main():
     if not public_url and args.host != "127.0.0.1":
         parser.error("Local mode only binds to 127.0.0.1. Configure IE416_PUBLIC_URL for external hosting.")
     try:
-        load_sa_bank()
+        for condition in ("node", "table"):
+            load_sa_bank(condition)
         app = create_app(data_dir=os.environ.get("IE416_DATA_DIR"), public_url=public_url,
                          password=os.environ.get("IE416_ADMIN_PASSWORD"),
                          viewer_password=os.environ.get("IE416_VIEWER_PASSWORD"))
-    except FileNotFoundError:
-        parser.error("Set IE416_SA_BANK_PATH to the private protocol/sa_bank_v2.json file.")
+    except FileNotFoundError as error:
+        parser.error(f"Provide both private SA banks via IE416_SA_BANK_PATH and IE416_SA_ALT_BANK_PATH. {error}")
     except (OSError, ValueError) as error:
         parser.error(str(error))
     serve(app, host=args.host, port=args.port, threads=4, max_request_body_size=131072)

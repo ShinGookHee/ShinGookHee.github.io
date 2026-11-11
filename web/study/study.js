@@ -191,7 +191,7 @@ function setup() {
     <div class="setup-grid"><form class="panel setup-form" id="setup"><div class="eyebrow">연구자 설정</div><h2>실험 세션 만들기</h2>
       <div class="field"><label for="participant">참가자 코드</label><input id="participant" name="participant" autocomplete="off" placeholder="예: P001" pattern="[A-Za-z0-9_-]{1,32}" required maxlength="32"><small class="subtle">이름 대신 익명 코드를 사용하세요.</small></div>
       <div class="field-row"><div class="field"><label for="mode">실행 모드</label><select id="mode"><option value="demo">데모 · 6시행</option><option value="pilot" selected>파일럿 · 연습 4 + 본 36</option><option value="main">본 실험 · 연습 4 + 본 36</option></select></div><div class="field"><label for="condition">UI 조건</label><select id="condition"><option value="auto">자동 균형 배정</option><option value="table">표 형식</option><option value="node">노드링크</option></select></div></div>
-      <div class="field"><label for="seed">시나리오 시드</label><input id="seed" type="number" min="0" max="2147483647" value="416" required><small class="subtle">SA는 문서 v2의 고정 12세트입니다. 같은 시드에서는 두 UI의 시행 순서와 행동 문제도 같습니다.</small></div>
+      <div class="field"><label for="seed">시나리오 시드</label><input id="seed" type="number" min="0" max="2147483647" value="416" required><small class="subtle">표는 SA 2, 노드링크는 기존 SA 세트를 사용합니다. 같은 시드에서는 행동 문제와 시행 유형의 순서가 같습니다.</small></div>
       <details class="details"><summary>검토 시간 설정</summary><div class="field-row"><div class="field"><label for="prelude_s">변화 전 제시 초</label><input id="prelude_s" type="number" min="1" max="30" value="4" required></div><div class="field"><label for="review_s">변화 후 검토 초</label><input id="review_s" type="number" min="5" max="120" value="20" required></div></div><div class="field-row"><div class="field"><label for="question_s">문항당 응답 초</label><input id="question_s" type="number" min="10" max="120" value="25" required></div><div class="field"><label for="decision_s">행동 응답 제한 초</label><input id="decision_s" type="number" min="20" max="300" value="90" required></div></div><p>두 평가 유형 모두 같은 고정 검토시간 후 응답합니다. 판단 시간에는 고정 검토시간이 포함되고, 이후 시간도 별도 저장됩니다.</p></details>
       <label class="check-line"><input id="ready" type="checkbox" required><span>연구 안내와 동의 절차를 별도로 확인하고 실험을 시작합니다. 데모는 기능 확인용입니다.</span></label>
       <button type="submit" class="btn primary wide" id="create">세션 준비 →</button><p class="subtle form-note">응답은 이 컴퓨터의 study-data에 저장됩니다. 시선 장비는 별도 연결이 필요합니다.</p>
@@ -201,7 +201,7 @@ function setup() {
       <div class="overview-content"><div class="overview-flow"><div class="flow-step"><span class="step-num">1</span><h3>기존 추천 확인</h3><p>처음에는 마감을 충족하는 순서</p></div><span class="flow-arrow">→</span><div class="flow-step"><span class="step-num">2</span><h3>상황 변화 검토</h3><p>마감 또는 개입 시간 갱신</p></div><span class="flow-arrow">→</span><div class="flow-step"><span class="step-num">3</span><h3>판단 또는 SA 응답</h3><p>유지·수정 / 화면 차폐 후 질문</p></div></div>
         <table class="protocol-table"><thead><tr><th>시행 유형</th><th>추천 부적절</th><th>변화 후 적절</th><th>변화 없음</th></tr></thead><tbody><tr><td>상황인식</td><td>6</td><td>4</td><td>2</td></tr><tr><td>행동 평가</td><td>12</td><td>8</td><td>4</td></tr></tbody></table>
         <div class="design-list"><div><h3>추천 결과와 상태를 분리합니다</h3><p>모의 AI 추천은 유지하고 현재 값으로 예상 결과만 갱신합니다. 수정 정답을 보여주지 않습니다.</p></div><div><h3>같은 정보, 다른 표현</h3><p>수치·변화·관계·예측·강조를 맞추고 표와 연결 표현을 비교합니다. 지도는 두 조건에 공통입니다.</p></div><div><h3>분석 가능한 시행별 기록</h3><p>지각·이해·회상·대안 예측, 적중·오탐, 최종 순서, 응답 시간과 화면 전환을 CSV와 JSON으로 내보냅니다.</p></div></div>
-        <details class="details"><summary>구현 범위와 파일럿 점검</summary><p>문항 원본: ${esc(protocol.sa_bank_version)}. ${esc(protocol.limits)} 실험용 가상 창고에서 사전 정의한 개입 사건을 제시합니다. 개입 시간은 AMR 주행 물리 엔진에서 추정한 값이 아닌 통제된 실험 자극입니다. 실제 시선은 수집하지 않으며 화면 좌표와 이벤트만 제공합니다. 표본 수·문항·제한 시간·Raw TLX 채점은 본 실험 전에 확정하세요.</p></details>
+        <details class="details"><summary>구현 범위와 파일럿 점검</summary><p>문항 버전 · 표 ${esc(protocol.sa_bank_versions?.table)} · 노드링크 ${esc(protocol.sa_bank_versions?.node)}. ${esc(protocol.limits)} 실험용 가상 창고에서 사전 정의한 개입 사건을 제시합니다. 개입 시간은 AMR 주행 물리 엔진에서 추정한 값이 아닌 통제된 실험 자극입니다. 실제 시선은 수집하지 않으며 화면 좌표와 이벤트만 제공합니다. 표본 수·문항·제한 시간·Raw TLX 채점은 본 실험 전에 확정하세요.</p></details>
       </div></section></div>`);
   if(auth)$('resume').onclick=async()=>{renderKey='';await refresh();queueEvent('reload',{phase:state?.phase});};
   if(!demoSetupOnly) $('mode').onchange=()=>{
@@ -616,7 +616,7 @@ function render(){
   else if(state.phase==='break'){$('app').innerHTML=`<section class="panel center-stage"><div class="eyebrow">Break / ${state.completed_main} trials complete</div><h1>잠시 쉬어가세요.</h1><p>시선과 자세를 편하게 하고, 준비가 되면 계속 진행하세요.</p>${button('다음 블록 시작 →','continue')}</section>`;bindActions();}
   if(state.legacy_protocol) {
     const note=document.createElement('p');note.className='subtle form-note';
-    note.textContent=`이 세션은 이전 프로토콜(${state.protocol_version})로 생성되었습니다. 수정 문항 v2를 확인하려면 홈에서 새 세션을 만드세요.`;
+    note.textContent=`이 세션은 이전 프로토콜(${state.protocol_version})로 생성되었습니다. 현재 배정의 문항을 확인하려면 홈에서 새 세션을 만드세요.`;
     $('app').prepend(note);
   }
 }
